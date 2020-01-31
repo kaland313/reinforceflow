@@ -2,7 +2,9 @@ import numpy as np
 import gym
 import tensorflow as tf
 import tensorflow.keras.layers as layers
+import matplotlib.pyplot as plt
 
+from utils import timeseries_plot_with_std_bands
 
 def calculate_discounted_returns(rewards, gamma=0.99):
     """Finite horizon discounted return"""
@@ -63,6 +65,12 @@ class PolicyGradient:
                     episodes, np.mean(reward_sums[-10:]), np.mean(losses[-10:]),
                     np.mean(episode_steps_list[-10:]), np.sum(episode_steps_list)))
             episodes += 1
+
+        plt.subplot(211)
+        timeseries_plot_with_std_bands(reward_sums, window_size=10, ylabel="Episode reward sum")
+        plt.subplot(212)
+        timeseries_plot_with_std_bands(losses, window_size=10, ylabel="Episode loss", xlabel="Episodes") # xticks=np.cumsum(episode_steps_list)
+        plt.show()
 
     def test(self, n_episodes=10):
         episodes = 1

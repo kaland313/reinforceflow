@@ -16,6 +16,9 @@ def calculate_discounted_returns(rewards, gamma=0.99):
     return returns[::-1]
 
 
+cross_entropy_loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+
+
 class PolicyGradient:
     "Implements the (vanilla) Policy Gradient algorithm"
     def __init__(self, env):
@@ -25,7 +28,7 @@ class PolicyGradient:
         self.action_shape = self.env.action_space.n
         self.model = None  # type: tf.keras.Model
         self.setup_model()
-        self.loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+
         self.optimizer = tf.optimizers.Adam(learning_rate=self.learning_rate)
 
     def setup_model(self):
@@ -47,9 +50,9 @@ class PolicyGradient:
             steps += episode_steps
             returns = calculate_discounted_returns(rewards)
             # Convert observations, actions, returns to correctly shaped tensors or numpy arrays
-            observations = tf.convert_to_tensor(np.stack(observations, axis=0))
+            observations = tf.convert_to_tensor(np.stack(observations, axis=0), dtype='float32')
             actions = tf.stack(actions, axis=0)
-            returns = tf.convert_to_tensor(np.array(returns)[..., None].astype('float32'))
+            returns = tf.convert_to_tensor(np.array(returns), dtype='float32')
             ep_loss = self.training_step(observations, actions, returns)
 
             losses.append(ep_loss),
@@ -57,23 +60,21 @@ class PolicyGradient:
             episode_steps_list.append(episode_steps)
             if episodes % 10 == 0:
                 print("Episode {:>4d} | Reward: {:>7.3f} | Loss: {:>8.4f} | Steps: {:>4.1f} | Total steps:  {:>4d}".format(
-                    episodes, np.mean(reward_sums[-10:-1]), np.mean(losses[-10:-1]),
-                    np.mean(episode_steps_list[-10:-1]), np.sum(episode_steps_list)))
+                    episodes, np.mean(reward_sums[-10:]), np.mean(losses[-10:]),
+                    np.mean(episode_steps_list[-10:]), np.sum(episode_steps_list)))
             episodes += 1
 
     def test(self, n_episodes=10):
-        steps = 0
         episodes = 1
         reward_sums = []
         episode_steps_list = []
         while episodes <= n_episodes:
             observations, actions, rewards, episode_steps = self.collect_experience(render=True)
-            steps += episode_steps
             reward_sums.append(np.sum(rewards))
             episode_steps_list.append(episode_steps)
             episodes += 1
 
-        print("Test | Reward: {:>7.3f} | Steps: {:>4.1f} | Total steps:  {:>4d}".format(
+        print("Test | Reward: {:>7.3f} | Steps: {:>5.1f} | Total steps:  {:>4d}".format(
             np.mean(reward_sums), np.mean(episode_steps_list), np.sum(episode_steps_list)))
 
     def collect_experience(self, render=False):
@@ -86,7 +87,6 @@ class PolicyGradient:
         _observations = []  # list of observations over the episode
         _rewards = []  # list of rewards over the episode
         _actions = []  # list of actions over the episode
-        # _logprobactions = [] # list of log prob(actions) over the episode
 
         obs = env.reset()
         done = False
@@ -101,7 +101,6 @@ class PolicyGradient:
 
             _rewards.append(reward)
             _actions.append(action)
-            # _logprobactions.append(logprobactions)
             episode_steps += 1
 
         return _observations, _actions, _rewards, episode_steps
@@ -113,11 +112,16 @@ class PolicyGradient:
 
         # calculate loss (RL loss + value function loss)
         with tf.GradientTape() as tape:
-            logprobactions = self.model(observations)
-            # L=-logπ(at|st)*A(at,st)
-            # logprobactions *= tf.one_hot(actions, depth=2)
-            # loss = -tf.multiply(logprobactions, scaled_returns)
-            loss = self.loss_object(actions, logprobactions, sample_weight=scaled_returns)
+            # Policy gradient loss: L = -log π(at|st) * A(at,st)
+            logits = self.model(observations)
+            logprobactions = tf.math.log(tf.keras.activations.softmax(logits))
+            logprobat = tf.reduce_sum(tf.multiply(logprobactions, tf.one_hot(actions, depth=2)), axis=-1)
+            loss = -tf.reduce_mean(tf.multiply(logprobat, scaled_returns))
+
+            # SparseCategoricalCrossentropy can be used to validate the correctness of the above loss
+            # print("L_PG: ", loss)
+            # loss = cross_entropy_loss(actions, logits, sample_weight=scaled_returns[..., None])
+            # print("L_CE: ", loss)
 
         gradients = tape.gradient(loss, self.model.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
@@ -131,6 +135,6 @@ if __name__ == '__main__':
     print(env.action_space.n, env.action_space, env.observation_space, env.observation_space.shape)
     agent = PolicyGradient(env)
     agent.learn(max_timesteps=50000)
-    agent.test(50)
+    agent.test(10)
 
 

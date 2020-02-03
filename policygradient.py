@@ -29,12 +29,13 @@ class PolicyGradient:
         self.env = env  # type: gym.Env
         self.episode_max_timesteps = episode_max_timesteps
         self.learning_rate = learning_rate
+        self.regularizer = None  # tf.keras.regularizers.l2(0.05)
         self.proba_distribution = None  # type: ProbaDistribution
         self.model = None  # type: tf.keras.Model
         self.setup_model()
         self.optimizer = tf.optimizers.Adam(learning_rate=self.learning_rate)
         self.tensorboard_summary = tensorboard_setup()  # type: tf.summary.SummaryWriter
-        self.regularizer = None  # tf.keras.regularizers.l2(0.05)
+
 
     def setup_model(self):
         if isinstance(self.env.action_space, gym.spaces.Discrete):
@@ -157,13 +158,13 @@ class PolicyGradient:
 
 if __name__ == '__main__':
     # env = gym.make('CartPole-v1')
-    env = gym.make('Pendulum-v0')
-    # env = gym.make('LunarLander-v2')
+    # env = gym.make('Pendulum-v0')
+    env = gym.make('LunarLander-v2')
     # env = gym.make('LunarLanderContinuous-v2')
     print(env)
     print("Action space: ", env.action_space, "\nObservation space:", env.observation_space)
     agent = PolicyGradient(env)
-    agent.learn(max_timesteps=50000)
+    agent.learn(max_timesteps=250000)
     agent.test(10)
 
 

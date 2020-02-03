@@ -1,5 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import datetime
+import os
+import tensorflow as tf
 
 def timeseries_plot_with_std_bands(timeseries, window_size: int, xlabel=None, ylabel=None, xticks=None, color='C0'):
     _timeseries = np.array(timeseries)
@@ -23,6 +26,13 @@ def timeseries_plot_with_std_bands(timeseries, window_size: int, xlabel=None, yl
         x_tic_locs, _ = plt.xticks()
         plt.xticks(x_tic_locs[:-1], xticks[x_tic_locs[:-1].astype(int)])
 
+
+def tensorboard_setup(base_path='tensorboard', run_subfolder="date-time"):
+    if run_subfolder == "date-time":
+        run_subfolder = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
+    tensorboard_root= os.path.join(base_path, run_subfolder)
+    summary_writer = tf.summary.create_file_writer(tensorboard_root)
+    return summary_writer
 
 if __name__ == '__main__':
     t = 100

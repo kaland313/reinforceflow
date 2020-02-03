@@ -1,2 +1,2 @@
 # reinforceflow
-Implementing basic RL algorithms usign Tensorflow 2.x
+Implementing basic RL algorithms usingTensorflow 2.x

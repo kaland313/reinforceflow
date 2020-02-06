@@ -29,10 +29,10 @@ class PolicyGradient:
         self.env = env  # type: gym.Env
         self.episode_max_timesteps = episode_max_timesteps
         self.learning_rate = learning_rate
-        self.regularizer = None  # tf.keras.regularizers.l2(0.05)
+        self.regularizer = None # tf.keras.regularizers.l2(0.05)
         self.proba_distribution = None  # type: ProbaDistribution
         self.model = None  # type: tf.keras.Model
-        self.setup_model()
+        self.setup_actor_model()
         self.optimizer = tf.optimizers.Adam(learning_rate=self.learning_rate)
         self.tensorboard_summary = tensorboard_setup()  # type: tf.summary.SummaryWriter
 
@@ -43,12 +43,11 @@ class PolicyGradient:
         elif isinstance(self.env.action_space, gym.spaces.Box):
             self.proba_distribution = DiagonalGaussian(self.env.action_space)
         self.model = tf.keras.Sequential([
-            layers.Dense(64, activation='relu', activity_regularizer=self.regularizer,
+            layers.Dense(64, activation='relu', kernel_regularizer=self.regularizer,
                          input_shape=self.env.observation_space.shape),
-            layers.Dense(64, activation='relu', activity_regularizer=self.regularizer),
-            layers.Dense(self.proba_distribution.nn_feature_num, activity_regularizer=self.regularizer,
-                         kernel_initializer=tf.keras.initializers.Zeros)
-        ])
+            layers.Dense(64, activation='relu', kernel_regularizer=self.regularizer),
+            layers.Dense(self.proba_distribution.nn_feature_num)
+        ]) #kernel_initializer=tf.keras.initializers.Zeros
 
     def learn(self, max_timesteps):
         steps = 0
@@ -57,7 +56,10 @@ class PolicyGradient:
         reward_sums = []
         episode_steps_list = []
         while steps < max_timesteps:
-            observations, actions, rewards, episode_steps, network_outputs = self.collect_experience()
+            if episodes % 10 == 0:
+                observations, actions, rewards, episode_steps, network_outputs = self.collect_experience(render=True)
+            else:
+                observations, actions, rewards, episode_steps, network_outputs = self.collect_experience(render=False)
             steps += episode_steps
             returns = calculate_discounted_returns(rewards)
             # Convert observations, actions, returns to correctly shaped tensors or numpy arrays
@@ -66,7 +68,8 @@ class PolicyGradient:
             returns = tf.convert_to_tensor(np.array(returns), dtype='float32')
             if episodes == 1:
                 tf.summary.trace_on(graph=True)
-            ep_loss = self.training_step(observations, actions, returns)
+
+            ep_loss, ep_gradnorm = self.training_step(observations, actions, returns)
             if episodes == 1:
                 with self.tensorboard_summary.as_default():
                     tf.summary.trace_export("Model_graph", step=0)
@@ -77,6 +80,10 @@ class PolicyGradient:
             with self.tensorboard_summary.as_default():
                 tf.summary.scalar("Training/Episode reward sum", reward_sums[-1], step=steps)
                 tf.summary.scalar("Training/Episode loss", ep_loss, step=steps)
+                tf.summary.scalar("Training/Grad Norm", ep_gradnorm, step=steps)
+                tf.summary.histogram("Training/Rewards", rewards, step=steps)
+                tf.summary.histogram("Training/Returns", returns, step=steps)
+                tf.summary.histogram("Training/Scaled returns", (returns - tf.math.reduce_mean(returns)) / tf.math.reduce_std(returns), step=steps)
             self.proba_distribution.log_histograms(actions, network_outputs, self.tensorboard_summary, steps)
             if episodes % 10 == 0:
                 print("Episode {:>4d} | Reward: {:>7.3f} | Loss: {:>8.4f} | Steps: {:>4.1f} | Total steps:  {:>4d}".format(
@@ -109,13 +116,13 @@ class PolicyGradient:
             if render:
                 env.render()
             _observations.append(obs)  # record the observation here, because this way _actions[i] will be the one calculated from _observations[i]
-            logits = self.model(obs[None, ...])
-            action = self.proba_distribution.sample(logits)
+            network_output = self.model(obs[None, ...])
+            action = self.proba_distribution.sample(network_output)
             obs, reward, done, _ = env.step(action.numpy())
 
             _rewards.append(reward)
             _actions.append(action)
-            _network_outputs.append(logits)
+            _network_outputs.append(network_output)
             episode_steps += 1
 
         return _observations, _actions, _rewards, episode_steps, _network_outputs
@@ -123,24 +130,23 @@ class PolicyGradient:
     @tf.function(experimental_relax_shapes=True)
     def training_step(self, observations, actions, returns):
         # caluclate advantages for each step --> for now just normalize the returns
-        scaled_returns = (returns - tf.math.reduce_mean(returns)) / tf.math.reduce_std(returns)
+        scaled_returns = (returns - tf.math.reduce_mean(returns)) / (tf.math.reduce_std(returns) + 1e-6)
 
         # calculate loss (RL loss + value function loss)
         with tf.GradientTape() as tape:
             # Policy gradient loss: L = -log π(at|st) * A(at,st)
-            logits = self.model(observations)
-            logprobat = self.proba_distribution.neg_log_prob_a_t(logits, actions)
+            network_output = self.model(observations)
+            logprobat = self.proba_distribution.neg_log_prob_a_t(network_output, actions)
             loss = tf.reduce_mean(tf.multiply(logprobat, scaled_returns))
 
             # SparseCategoricalCrossentropy can be used to validate the correctness of the above loss for discrete actions
             # print("L_PG: ", loss)
-            # loss = cross_entropy_loss(actions, logits, sample_weight=scaled_returns[..., None])
+            # loss = cross_entropy_loss(actions, network_output, sample_weight=scaled_returns[..., None])
             # print("L_CE: ", loss)
 
         gradients = tape.gradient(loss, self.model.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.model.trainable_variables))
-
-        return tf.reduce_mean(loss)
+        return tf.reduce_mean(loss), tf.linalg.global_norm(gradients)
 
     def test(self, n_episodes=10):
         episodes = 1
@@ -158,8 +164,8 @@ class PolicyGradient:
 
 if __name__ == '__main__':
     # env = gym.make('CartPole-v1')
-    # env = gym.make('Pendulum-v0')
-    env = gym.make('LunarLander-v2')
+    env = gym.make('MountainCarContinuous-v0')
+    # env = gym.make('LunarLander-v2')
     # env = gym.make('LunarLanderContinuous-v2')
     print(env)
     print("Action space: ", env.action_space, "\nObservation space:", env.observation_space)

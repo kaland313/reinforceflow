@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import gym.spaces
+from tensorflow_probability import distributions as tfd
 
 class ProbaDistribution:
     def __init__(self, N):
@@ -20,7 +21,7 @@ class Categorical(ProbaDistribution):
         super(Categorical, self).__init__(action_space.n)
 
     def sample(self, network_outputs):
-        return tf.random.categorical(network_outputs, num_samples=1)[0,0]
+        return tf.random.categorical(network_outputs, num_samples=1)[0, 0]
 
     def neg_log_prob_a_t(self, network_outputs, sampled_actions):
         logprobactions = tf.math.log(tf.keras.activations.softmax(network_outputs))
@@ -42,12 +43,19 @@ class DiagonalGaussian(ProbaDistribution):
 
     def neg_log_prob_a_t(self, network_outputs, sampled_actions):
         mean_vector, std_vector, log_std_vector = self.split_network_feautres(network_outputs)
+
         # The formula below can be derived by calculating the -log of the normal distribution
         # Actual implementation is coped from:
         # https://github.com/hill-a/stable-baselines/blob/c6acd1e6dcf40a824e4765198b705db7e5d7188e/stable_baselines/common/distributions.py#L402
-        return 0.5 * tf.reduce_sum(tf.square((sampled_actions - mean_vector) / std_vector), axis=-1) \
-               + 0.5 * np.log(2.0 * np.pi) * tf.cast(tf.shape(sampled_actions)[-1], tf.float32) \
-               + tf.reduce_sum(log_std_vector, axis=-1)
+        # neg_log_prob_a_t = 0.5 * tf.reduce_sum(tf.square((sampled_actions - mean_vector) / std_vector), axis=-1) \
+        #                    + 0.5 * np.log(2.0 * np.pi) * tf.cast(tf.shape(sampled_actions)[-1], tf.float32) \
+        #                    + tf.reduce_sum(log_std_vector, axis=-1)
+
+        dist = tfd.MultivariateNormalDiag(loc=mean_vector, scale_diag=std_vector)
+        log_prob_a_t = dist.log_prob(sampled_actions)
+        # np.testing.assert_allclose(neg_log_prob_a_t.numpy(), -log_prob_a_t, rtol=1e-6)
+
+        return -log_prob_a_t
     
     @staticmethod
     def split_network_feautres(network_outputs):

@@ -1,7 +1,7 @@
 import unittest
 from unittest import TestCase
 import numpy as np
-from policygradient import calculate_discounted_returns
+from PolicyGradient import calculate_discounted_returns
 
 # Credits: https://github.com/csxeba/Learn-TensorFlow-2.0-The-Hard-Way
 def discount_rewards(rewards, gamma=0.99):

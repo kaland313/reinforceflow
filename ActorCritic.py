@@ -8,17 +8,17 @@ class ActorCritic(PolicyGradient):
     def __init__(self, env, episode_max_timesteps=300, actor_learning_rate=1e-3, critic_learning_rate=1e-2):
         super(ActorCritic, self).__init__(env, episode_max_timesteps, actor_learning_rate)
         self.critic_learning_rate = critic_learning_rate
-        self.critic_model = self.setup_critic_model()  # type: tf.keras.Model
+        self.critic_model = None  # type: tf.keras.Model3
+        self.setup_critic_model()
         self.critic_optimizer = tf.optimizers.Adam(learning_rate=self.critic_learning_rate)
         self.critic_loss = tf.keras.losses.MeanSquaredError()
 
     def setup_critic_model(self):
-        actor_model = tf.keras.Sequential([
+        self.critic_model = tf.keras.Sequential([
             layers.Dense(64, activation='relu', input_shape=self.env.observation_space.shape),
             layers.Dense(64, activation='relu'),
             layers.Dense(1)
         ])  # kernel_initializer=tf.keras.initializers.Zeros
-        return actor_model
 
     def training_step(self, observations, actions, rewards, returns, steps):
         values = self.critic_model(observations)

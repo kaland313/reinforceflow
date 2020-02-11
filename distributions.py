@@ -70,3 +70,28 @@ class DiagonalGaussian(ProbaDistribution):
             tf.summary.histogram("Actions/Predicted mean", mean_vector, step=step)
             tf.summary.histogram("Actions/Predicted std", std_vector, step=step)
 
+
+class DiagonalGaussianGlobalStd(ProbaDistribution):
+    def __init__(self, action_space, initial_value=1.):
+        super(DiagonalGaussianGlobalStd, self).__init__(action_space.shape[0])
+        self.action_space = action_space  # type: gym.spaces.Box
+        self.log_std = tf.Variable(initial_value, trainable=True, name="action_global_log_std")
+
+    def sample(self, network_outputs):
+        mean_vector = network_outputs
+        random_normal = tf.random.normal(shape=mean_vector.shape)
+        action = (random_normal * self.log_std + mean_vector)[0]
+        return tf.clip_by_value(action, self.action_space.low, self.action_space.high)
+
+    def neg_log_prob_a_t(self, network_outputs, sampled_actions):
+        mean_vector = network_outputs
+        std = tf.exp(self.log_std)
+        dist = tfd.MultivariateNormalDiag(loc=mean_vector, scale_diag=tf.ones_like(mean_vector[0])*std)
+        log_prob_a_t = dist.log_prob(sampled_actions)
+        return -log_prob_a_t
+
+    def log_histograms(self, sampled_actions, network_outputs, tensorboard_summary, step):
+        with tensorboard_summary.as_default():
+            tf.summary.histogram("Actions/Sampled actions", sampled_actions, step=step)
+            tf.summary.histogram("Actions/Predicted mean", network_outputs, step=step)
+            tf.summary.scalar("Actions/Global action std", tf.exp(self.log_std), step=step)

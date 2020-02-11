@@ -5,7 +5,7 @@ import tensorflow.keras.layers as layers
 import matplotlib.pyplot as plt
 
 from utils import *
-from distributions import ProbaDistribution, Categorical, DiagonalGaussian
+from distributions import ProbaDistribution, Categorical, DiagonalGaussian, DiagonalGaussianGlobalStd
 
 
 def calculate_discounted_returns(rewards, gamma=0.99):
@@ -25,28 +25,41 @@ cross_entropy_loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=T
 
 class PolicyGradient:
     "Implements the (vanilla) Policy Gradient algorithm"
-    def __init__(self, env, episode_max_timesteps=300, learning_rate=1e-3):
+    def __init__(self, env, episode_max_timesteps=300, learning_rate=1e-3, global_sigma_for_cont_action=False):
         self.env = env  # type: gym.Env
         self.episode_max_timesteps = episode_max_timesteps
         self.learning_rate = learning_rate
+
         self.regularizer = None  # tf.keras.regularizers.l2(0.05)
+        self.global_sigma_for_cont_action = global_sigma_for_cont_action
         self.proba_distribution = None  # type: ProbaDistribution
-        self.actor_model = self.setup_actor_model()  # type: tf.keras.Model
+        self.actor_model = None  # type: tf.keras.Model
+        self.actor_trainable_vars = None
+
+        self.setup_actor_model()
         self.actor_optimizer = tf.optimizers.Adam(learning_rate=self.learning_rate)
         self.tensorboard_summary = tensorboard_setup()  # type: tf.summary.SummaryWriter
 
+
     def setup_actor_model(self):
+
         if isinstance(self.env.action_space, gym.spaces.Discrete):
             self.proba_distribution = Categorical(self.env.action_space)
         elif isinstance(self.env.action_space, gym.spaces.Box):
-            self.proba_distribution = DiagonalGaussian(self.env.action_space)
-        actor_model = tf.keras.Sequential([
+            if self.global_sigma_for_cont_action:
+                self.proba_distribution = DiagonalGaussianGlobalStd(self.env.action_space)
+            else:
+                self.proba_distribution = DiagonalGaussian(self.env.action_space)
+        self.actor_model = tf.keras.Sequential([
             layers.Dense(64, activation='relu', kernel_regularizer=self.regularizer,
                          input_shape=self.env.observation_space.shape),
             layers.Dense(64, activation='relu', kernel_regularizer=self.regularizer),
             layers.Dense(self.proba_distribution.nn_feature_num)
         ]) #kernel_initializer=tf.keras.initializers.Zeros
-        return actor_model
+
+        self.actor_trainable_vars = self.actor_model.trainable_variables
+        if isinstance(self.proba_distribution, DiagonalGaussianGlobalStd):
+            self.actor_trainable_vars += [self.proba_distribution.log_std]
 
     def learn(self, max_timesteps, render_every_n_episode=30):
         steps = 0
@@ -154,8 +167,8 @@ class PolicyGradient:
             # loss = cross_entropy_loss(actions, network_output, sample_weight=normalized_advantages[..., None])
             # print("L_CE: ", loss)
 
-        gradients = tape.gradient(loss, self.actor_model.trainable_variables)
-        self.actor_optimizer.apply_gradients(zip(gradients, self.actor_model.trainable_variables))
+        gradients = tape.gradient(loss, self.actor_trainable_vars)
+        self.actor_optimizer.apply_gradients(zip(gradients, self.actor_trainable_vars))
         return tf.reduce_mean(loss), tf.linalg.global_norm(gradients)
 
     def test(self, n_episodes=10):

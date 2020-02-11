@@ -48,15 +48,6 @@ def history_dict_to_tensorboard(summary_writer, history_dict, step):
                 tf. summary.image(key, value["value"], step)
 
 
-def safe_normalize_tf(x: tf.Tensor):
-    std = tf.math.reduce_std(x)
-    if std > 0.:
-        return (x - tf.math.reduce_mean(x)) / std
-    else:
-        # this most likely just returns zero
-        return x - tf.math.reduce_mean(x)
-
-
 if __name__ == '__main__':
     t = 100
     ts = np.random.random(t) + np.array(np.sin(t))

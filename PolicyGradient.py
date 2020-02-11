@@ -4,31 +4,23 @@ import tensorflow as tf
 import tensorflow.keras.layers as layers
 import matplotlib.pyplot as plt
 
-from utils import *
 from distributions import ProbaDistribution, Categorical, DiagonalGaussian, DiagonalGaussianGlobalStd
-
-
-def calculate_discounted_returns(rewards, gamma=0.99):
-    """Finite horizon discounted return"""
-    returns = np.zeros_like(rewards)
-    for i, _ in enumerate(returns):
-        # We iterate through rewards in reverse, hence "-i", but the last element is indexed as -1
-        returns[i] = rewards[-i - 1]
-        if i != 0:
-            # returns[i-1] is just the return at the next timesteps, which include all future rewards discounted
-            returns[i] += returns[i - 1] * gamma
-    return returns[::-1]
-
+from utils.reward_calc import calculate_discounted_returns, safe_normalize_tf
+from utils.logging import tensorboard_setup, timeseries_plot_with_std_bands
 
 cross_entropy_loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 
 
 class PolicyGradient:
     "Implements the (vanilla) Policy Gradient algorithm"
-    def __init__(self, env, episode_max_timesteps=300, learning_rate=1e-3, global_sigma_for_cont_action=False):
+    def __init__(self,
+                 env,
+                 learning_rate=1e-3,
+                 discount_gamma=0.99,
+                 global_sigma_for_cont_action=False):
         self.env = env  # type: gym.Env
-        self.episode_max_timesteps = episode_max_timesteps
         self.learning_rate = learning_rate
+        self.discount_gamma = discount_gamma
 
         self.regularizer = None  # tf.keras.regularizers.l2(0.05)
         self.global_sigma_for_cont_action = global_sigma_for_cont_action
@@ -122,7 +114,7 @@ class PolicyGradient:
         obs = self.env.reset()
         done = False
         episode_steps = 0
-        while not done and episode_steps < self.episode_max_timesteps:
+        while not done:
             if render:
                 self.env.render()
             _observations.append(obs)  # record the observation here, because this way _actions[i] will be the one calculated from _observations[i]
@@ -138,7 +130,7 @@ class PolicyGradient:
         return _observations, _actions, _rewards, episode_steps, _network_outputs
 
     def prepare_data(self, actions, observations, rewards):
-        returns = calculate_discounted_returns(rewards)
+        returns = calculate_discounted_returns(rewards, self.discount_gamma)
         # Convert observations, actions, returns to correctly shaped tensors or numpy arrays
         observations = tf.convert_to_tensor(np.stack(observations, axis=0), dtype='float32')
         actions = tf.stack(actions, axis=0)
@@ -193,7 +185,7 @@ if __name__ == '__main__':
     print(env)
     print("Action space: ", env.action_space, "\nObservation space:", env.observation_space)
     agent = PolicyGradient(env)
-    agent.learn(max_timesteps=250000)
+    agent.learn(max_timesteps=250000, render_every_n_episode=10)
     agent.test(10)
 
 

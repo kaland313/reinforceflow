@@ -62,14 +62,14 @@ class PolicyGradient:
         episode_steps_list = []
         while steps < max_timesteps:
             if episodes % render_every_n_episode == 0:
-                observations, actions, rewards, episode_steps, network_outputs = self.collect_experience(render=True)
+                observations, actions, rewards, dones, episode_steps, network_outputs = self.collect_experience(render=True)
             else:
-                observations, actions, rewards, episode_steps, network_outputs = self.collect_experience(render=False)
+                observations, actions, rewards, dones, episode_steps, network_outputs = self.collect_experience(render=False)
             steps += episode_steps
-            actions, observations, rewards, returns = self.prepare_data(actions, observations, rewards)
+            actions, observations, rewards, dones = self.prepare_data(actions, observations, rewards, dones)
             if episodes == 1:
                 tf.summary.trace_on(graph=True)
-            actor_loss, critic_loss = self.training_step(observations, actions, rewards, returns, steps)
+            actor_loss, critic_loss = self.training_step(observations, actions, rewards, dones, steps)
             if episodes == 1:
                 with self.tensorboard_summary.as_default():
                     tf.summary.trace_export("Model_graph", step=0)
@@ -81,7 +81,6 @@ class PolicyGradient:
             with self.tensorboard_summary.as_default():
                 tf.summary.scalar("Training/Episode reward sum", np.sum(rewards), step=steps)
                 tf.summary.histogram("Training/Rewards", rewards, step=steps)
-                tf.summary.histogram("Training/Returns", returns, step=steps)
             self.proba_distribution.log_histograms(actions, network_outputs, self.tensorboard_summary, steps)
             if episodes % 10 == 0:
                 print("Episode {:>4d} | Reward: {:>7.3f} | Actor Loss: {:>8.4f} | Critic Loss: {:>8.4f} | "
@@ -109,6 +108,7 @@ class PolicyGradient:
         _observations = []  # list of observations over the episode
         _rewards = []  # list of rewards over the episode
         _actions = []  # list of actions over the episode
+        _dones = []
         _network_outputs = []
 
         obs = self.env.reset()
@@ -124,25 +124,31 @@ class PolicyGradient:
 
             _rewards.append(reward)
             _actions.append(action)
+            _dones.append(done)
             _network_outputs.append(network_output)
             episode_steps += 1
 
-        return _observations, _actions, _rewards, episode_steps, _network_outputs
+        # Append the last observation to be able to calculate V(t+1) when using the generalized advantage estimate
+        _observations.append(obs)
+        return _observations, _actions, _rewards, _dones, episode_steps, _network_outputs
 
-    def prepare_data(self, actions, observations, rewards):
-        returns = calculate_discounted_returns(rewards, self.discount_gamma)
+    def prepare_data(self, actions, observations, rewards, dones):
         # Convert observations, actions, returns to correctly shaped tensors or numpy arrays
         observations = tf.convert_to_tensor(np.stack(observations, axis=0), dtype='float32')
-        actions = tf.stack(actions, axis=0)
-        returns = tf.convert_to_tensor(np.array(returns), dtype='float32')
-        return actions, observations, rewards, returns
+        actions = tf.cast(tf.stack(actions, axis=0), dtype='float32')
+        rewards = tf.cast(tf.stack(rewards, axis=0), dtype='float32')
+        dones = tf.cast(tf.stack(dones, axis=0), dtype='float32')
+        return actions, observations, rewards, dones
 
-    def training_step(self, observations, actions, rewards, returns, steps):
-        # caluclate advantages for each step --> for now just normalize the returns
+    def training_step(self, observations, actions, rewards, dones, steps):
+        returns = calculate_discounted_returns(rewards, self.discount_gamma)
+        returns = tf.convert_to_tensor(returns, dtype='float32')
+        observations = observations[0:-1:]  # The last observation is o_t+1, and it's only needed for gae calculation
         ep_loss, ep_gradnorm = self.training_step_actor(observations, actions, advantage_estimate=returns)
         with self.tensorboard_summary.as_default():
             tf.summary.scalar("Training/Actor loss", ep_loss, step=steps)
             tf.summary.scalar("Training/Actor Grad Norm", ep_gradnorm, step=steps)
+            tf.summary.histogram("Training/Returns", returns, step=steps)
         return ep_loss, np.nan
 
     @tf.function(experimental_relax_shapes=True)

@@ -23,13 +23,15 @@ def calculate_discounted_returns(rewards, gamma=0.99):
     return returns[::-1]
 
 
-def calculate_generalized_advantage_estimate(rewards, values, gae_lambda=0.97, discount_gamma=0.99):
+def calculate_generalized_advantage_estimate(rewards, values, dones, gae_lambda=0.97, discount_gamma=0.99):
     # delta_t = gamma*V(t+1) + r_t - V(t)
-    Vt = values[-1:]   # the last element is only used as V(t+1), thus it's exlcuded from V(t)
+    Vt = values[:-1]   # the last element is only used as V(t+1), thus it's exlcuded from V(t)
     Vt1 = values[1:]   # the first element is only used as V(t), thus it's exlcuded from V(t+1)
-    rt = rewards[-1:]  # must be brought to the same shape as Vt
-    delta = discount_gamma * Vt1 + rt - Vt
+    delta = discount_gamma * Vt1 * (1 - dones) + rewards - Vt
     advantage_estimates = calculate_discounted_returns(delta, gamma=gae_lambda * discount_gamma)
+    advantage_estimates = tf.convert_to_tensor(advantage_estimates, dtype='float32')
     # A = V - Q ~= returns - values
     returns = advantage_estimates + Vt
     return advantage_estimates, returns
+
+

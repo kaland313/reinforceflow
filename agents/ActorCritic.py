@@ -1,9 +1,8 @@
-import numpy as np
 import gym
 import tensorflow as tf
 import tensorflow.keras.layers as layers
-from PolicyGradient import PolicyGradient
-from utils.reward_calc import calculate_generalized_advantage_estimate, calculate_discounted_returns
+from agents.PolicyGradient import PolicyGradient
+from utils.reward_calc import calculate_generalized_advantage_estimate
 
 
 class ActorCritic(PolicyGradient):
@@ -57,16 +56,3 @@ class ActorCritic(PolicyGradient):
         gradients = tape.gradient(loss, self.critic_model.trainable_variables)
         self.critic_optimizer.apply_gradients(zip(gradients, self.critic_model.trainable_variables))
         return tf.reduce_mean(loss), tf.linalg.global_norm(gradients)
-
-
-if __name__ == '__main__':
-    # env = gym.make('CartPole-v1')
-    # env = gym.make('MountainCarContinuous-v0')
-    # env = gym.make('Pendulum-v0')
-    # env = gym.make('LunarLander-v2')
-    env = gym.make('LunarLanderContinuous-v2')
-    print(env)
-    print("Action space: ", env.action_space, "\nObservation space:", env.observation_space)
-    agent = ActorCritic(env, critic_learning_rate=1e-2)
-    agent.learn(max_timesteps=250000, render_every_n_episode=1000)
-    agent.test(10)

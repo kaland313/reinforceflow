@@ -4,7 +4,7 @@ import tensorflow as tf
 import tensorflow.keras.layers as layers
 import matplotlib.pyplot as plt
 
-from distributions import ProbaDistribution, Categorical, DiagonalGaussian, DiagonalGaussianGlobalStd
+from agents.distributions import ProbaDistribution, Categorical, DiagonalGaussian, DiagonalGaussianGlobalStd
 from utils.reward_calc import calculate_discounted_returns, safe_normalize_tf
 from utils.logging import tensorboard_setup, timeseries_plot_with_std_bands
 
@@ -135,7 +135,7 @@ class PolicyGradient:
     def prepare_data(self, actions, observations, rewards, dones):
         # Convert observations, actions, returns to correctly shaped tensors or numpy arrays
         observations = tf.convert_to_tensor(np.stack(observations, axis=0), dtype='float32')
-        actions = tf.cast(tf.stack(actions, axis=0), dtype='float32')
+        actions = tf.stack(actions, axis=0)
         rewards = tf.cast(tf.stack(rewards, axis=0), dtype='float32')
         dones = tf.cast(tf.stack(dones, axis=0), dtype='float32')
         return actions, observations, rewards, dones
@@ -181,17 +181,5 @@ class PolicyGradient:
 
         print("Test | Reward: {:>7.3f} | Steps: {:>5.1f} | Total steps:  {:>4d}".format(
             np.mean(reward_sums), np.mean(episode_steps_list), np.sum(episode_steps_list)))
-
-
-if __name__ == '__main__':
-    # env = gym.make('CartPole-v1')
-    env = gym.make('MountainCarContinuous-v0')
-    # env = gym.make('LunarLander-v2')
-    # env = gym.make('LunarLanderContinuous-v2')
-    print(env)
-    print("Action space: ", env.action_space, "\nObservation space:", env.observation_space)
-    agent = PolicyGradient(env)
-    agent.learn(max_timesteps=250000, render_every_n_episode=10)
-    agent.test(10)
 
 

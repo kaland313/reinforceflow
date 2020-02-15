@@ -1,6 +1,6 @@
 
 
-from ActorCritic import ActorCritic
+from agents.ActorCritic import ActorCritic
 
 
 class PPO(ActorCritic):

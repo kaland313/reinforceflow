@@ -2,7 +2,7 @@ import gym
 import tensorflow as tf
 import tensorflow.keras.layers as layers
 from agents.PolicyGradient import PolicyGradient
-from utils.reward_calc import calculate_generalized_advantage_estimate
+from utils.reward_calc import calculate_generalized_advantage_estimate, calculate_discounted_returns
 
 
 class ActorCritic(PolicyGradient):
@@ -11,8 +11,11 @@ class ActorCritic(PolicyGradient):
                  actor_learning_rate=1e-3,
                  critic_learning_rate=1e-2,
                  discount_gamma=0.99,
-                 generalized_advantage_estimate_lambda=0.97):
-        super(ActorCritic, self).__init__(env, actor_learning_rate, discount_gamma)
+                 generalized_advantage_estimate_lambda=0.97,
+                 global_std_for_continuous_policy=False,
+                 algo_str="A2C"):
+        super(ActorCritic, self).__init__(env, actor_learning_rate, discount_gamma, global_std_for_continuous_policy,
+                                          algo_str=algo_str)
         self.critic_learning_rate = critic_learning_rate
         self.gae_lambda = generalized_advantage_estimate_lambda
 

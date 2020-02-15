@@ -3,16 +3,19 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from mpl_toolkits.mplot3d import Axes3D
 import tensorflow as tf
-from tensorflow_probability import distributions as tfd
+import tensorflow_probability as tfp
 
-mean_range = np.arange(-2.5, 2.5, 0.05)
-sigma_range = np.arange(0.1, 2, 0.05)
+mean_range = np.arange(-2.5, 2.5, 0.1)
+sigma_range = np.arange(0.1, 2, 0.1)
 mesh_mean, mesh_sigma = np.meshgrid(mean_range, sigma_range)
 L=np.zeros_like(mesh_mean)
 for i, row in enumerate(mesh_mean):
     for j, _ in enumerate(row):
-        dist = tfd.MultivariateNormalDiag(loc=[mesh_mean[i, j]], scale_diag=[mesh_sigma[i, j]])
-        neg_log_prob_a_t = -dist.log_prob([0.]).numpy()
+        dist = tfp.distributions.MultivariateNormalDiag(loc=[mesh_mean[i, j]], scale_diag=[mesh_sigma[i, j]])
+        dist = tfp.distributions.TransformedDistribution(distribution=dist,
+                                                         bijector=tfp.bijectors.Tanh(),
+                                                         name='TanhMultivariateNormalDiag')
+        neg_log_prob_a_t = -dist.log_prob([0.9]).numpy()
         L[i, j] = neg_log_prob_a_t
 
 L = np.clip(L, -10., 2.)

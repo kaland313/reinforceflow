@@ -29,10 +29,11 @@ def timeseries_plot_with_std_bands(timeseries, window_size: int, xlabel=None, yl
         plt.xticks(x_tic_locs[:-1], xticks[x_tic_locs[:-1].astype(int)])
 
 
-def tensorboard_setup(base_path='tensorboard', run_subfolder="date-time"):
+def tensorboard_setup(base_path='tensorboard', run_subfolder="date-time", run_label=""):
     if run_subfolder == "date-time":
         run_subfolder = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
-    tensorboard_root= os.path.join(base_path, run_subfolder)
+    run_subfolder += "_" + run_label
+    tensorboard_root = os.path.join(base_path, run_subfolder)
     summary_writer = tf.summary.create_file_writer(tensorboard_root)
     return summary_writer
 

@@ -1,11 +1,11 @@
 import numpy as np
 import tensorflow as tf
 import gym.spaces
-from tensorflow_probability import distributions as tfd
+import tensorflow_probability as tfp
 
 class ProbaDistribution:
-    def __init__(self, N):
-        self.nn_feature_num = N
+    def __init__(self, nn_feature_num):
+        self.nn_feature_num = nn_feature_num
 
     def sample(self, network_outputs):
         NotImplemented
@@ -30,33 +30,28 @@ class Categorical(ProbaDistribution):
 
 
 class DiagonalGaussian(ProbaDistribution):
-    def __init__(self, action_space):
+    def __init__(self, action_space, tanh_transform=True):
         # *2 to predict mean and std of the Gaussian distribution
-        super(DiagonalGaussian, self).__init__(action_space.shape[0]*2)
+        super(DiagonalGaussian, self).__init__(nn_feature_num=action_space.shape[0]*2)
         self.action_space = action_space  # type: gym.spaces.Box
+        self.tanh_transform = tanh_transform
+        if self.tanh_transform:
+            self.transform_scale = (self.action_space.high - self.action_space.low) / 2.
+            self.transform_shift = (self.action_space.high + self.action_space.low) / 2.
 
     def sample(self, network_outputs):
         mean_vector, std_vector, _ = self.split_network_feautres(network_outputs)
-        random_normal = tf.random.normal(shape=mean_vector.shape)
-        action = (random_normal*std_vector + mean_vector)[0]
+        dist = self.tfp_distribution(mean_vector, std_vector)
+        action = dist.sample([1])
+        action = tf.squeeze(action, axis=range(action.ndim-1))  # keep the last dim, squeeze all others
         return tf.clip_by_value(action, self.action_space.low, self.action_space.high)
 
     def neg_log_prob_a_t(self, network_outputs, sampled_actions):
         mean_vector, std_vector, log_std_vector = self.split_network_feautres(network_outputs)
-
-        # The formula below can be derived by calculating the -log of the normal distribution
-        # Actual implementation is coped from:
-        # https://github.com/hill-a/stable-baselines/blob/c6acd1e6dcf40a824e4765198b705db7e5d7188e/stable_baselines/common/distributions.py#L402
-        # neg_log_prob_a_t = 0.5 * tf.reduce_sum(tf.square((sampled_actions - mean_vector) / std_vector), axis=-1) \
-        #                    + 0.5 * np.log(2.0 * np.pi) * tf.cast(tf.shape(sampled_actions)[-1], tf.float32) \
-        #                    + tf.reduce_sum(log_std_vector, axis=-1)
-
-        dist = tfd.MultivariateNormalDiag(loc=mean_vector, scale_diag=std_vector)
+        dist = self.tfp_distribution(mean_vector, std_vector)
         log_prob_a_t = dist.log_prob(sampled_actions)
-        # np.testing.assert_allclose(neg_log_prob_a_t.numpy(), -log_prob_a_t, rtol=1e-6)
-
         return -log_prob_a_t
-    
+
     @staticmethod
     def split_network_feautres(network_outputs):
         mean_vector, log_std_vector = tf.split(network_outputs, num_or_size_splits=2, axis=-1)
@@ -70,12 +65,27 @@ class DiagonalGaussian(ProbaDistribution):
             tf.summary.histogram("Actions/Predicted mean", mean_vector, step=step)
             tf.summary.histogram("Actions/Predicted std", std_vector, step=step)
 
+    def tfp_distribution(self, mean_vector, std_vector):
+        dist = tfp.distributions.MultivariateNormalDiag(loc=mean_vector, scale_diag=std_vector)
+        if self.tanh_transform:
+            transforms = tfp.bijectors.Chain(bijectors=[tfp.bijectors.Tanh(),
+                                                        tfp.bijectors.Affine(shift=self.transform_shift,
+                                                                             scale_diag=self.transform_scale)])
+            dist = tfp.distributions.TransformedDistribution(distribution=dist,
+                                                             bijector=transforms,
+                                                             name='TanhMultivariateNormalDiag')
+        return dist
+
 
 class DiagonalGaussianGlobalStd(ProbaDistribution):
-    def __init__(self, action_space, initial_value=1.):
+    def __init__(self, action_space, initial_value=1., tanh_transform=True):
         super(DiagonalGaussianGlobalStd, self).__init__(action_space.shape[0])
         self.action_space = action_space  # type: gym.spaces.Box
         self.log_std = tf.Variable(initial_value, trainable=True, name="action_global_log_std")
+        self.tanh_transform = tanh_transform
+        if self.tanh_transform:
+            self.transform_scale = (self.action_space.high - self.action_space.low) / 2.
+            self.transform_shift = (self.action_space.high + self.action_space.low) / 2.
 
     def sample(self, network_outputs):
         mean_vector = network_outputs
@@ -86,7 +96,7 @@ class DiagonalGaussianGlobalStd(ProbaDistribution):
     def neg_log_prob_a_t(self, network_outputs, sampled_actions):
         mean_vector = network_outputs
         std = tf.exp(self.log_std)
-        dist = tfd.MultivariateNormalDiag(loc=mean_vector, scale_diag=tf.ones_like(mean_vector[0])*std)
+        dist = self.tfp_distribution(mean_vector=mean_vector, std_vector=tf.ones_like(mean_vector[0])*std)
         log_prob_a_t = dist.log_prob(sampled_actions)
         return -log_prob_a_t
 
@@ -95,3 +105,15 @@ class DiagonalGaussianGlobalStd(ProbaDistribution):
             tf.summary.histogram("Actions/Sampled actions", sampled_actions, step=step)
             tf.summary.histogram("Actions/Predicted mean", network_outputs, step=step)
             tf.summary.scalar("Actions/Global action std", tf.exp(self.log_std), step=step)
+
+    def tfp_distribution(self, mean_vector, std_vector):
+        dist = tfp.distributions.MultivariateNormalDiag(loc=mean_vector, scale_diag=std_vector)
+        if self.tanh_transform:
+            transforms = tfp.bijectors.Chain(bijectors=[tfp.bijectors.Tanh(),
+                                                        tfp.bijectors.Affine(shift=self.transform_shift,
+                                                                             scale_diag=self.transform_scale)])
+            dist = tfp.distributions.TransformedDistribution(distribution=dist,
+                                                             bijector=transforms,
+                                                             name='TanhMultivariateNormalDiag')
+        return dist
+

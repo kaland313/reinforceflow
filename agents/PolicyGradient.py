@@ -17,20 +17,22 @@ class PolicyGradient:
                  env,
                  learning_rate=1e-3,
                  discount_gamma=0.99,
-                 global_sigma_for_cont_action=False):
+                 global_std_for_continuous_policy=False,
+                 algo_str="PG"):
+        self.algo_str = algo_str
         self.env = env  # type: gym.Env
         self.learning_rate = learning_rate
         self.discount_gamma = discount_gamma
 
         self.regularizer = None  # tf.keras.regularizers.l2(0.05)
-        self.global_sigma_for_cont_action = global_sigma_for_cont_action
+        self.global_sigma_for_cont_action = global_std_for_continuous_policy
         self.proba_distribution = None  # type: ProbaDistribution
         self.actor_model = None  # type: tf.keras.Model
         self.actor_trainable_vars = None
 
         self.setup_actor_model()
         self.actor_optimizer = tf.optimizers.Adam(learning_rate=self.learning_rate)
-        self.tensorboard_summary = tensorboard_setup()  # type: tf.summary.SummaryWriter
+        self.tensorboard_summary = tensorboard_setup(run_label=env.spec.id + "_" + self.algo_str)  # type: tf.summary.SummaryWriter
 
 
     def setup_actor_model(self):
@@ -174,7 +176,7 @@ class PolicyGradient:
         reward_sums = []
         episode_steps_list = []
         while episodes <= n_episodes:
-            observations, actions, rewards, episode_steps, network_outputs = self.collect_experience(render=True)
+            observations, actions, rewards, dones, episode_steps, network_outputs = self.collect_experience(render=True)
             reward_sums.append(np.sum(rewards))
             episode_steps_list.append(episode_steps)
             episodes += 1

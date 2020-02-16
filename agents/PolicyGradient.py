@@ -154,7 +154,7 @@ class PolicyGradient:
         return ep_loss, np.nan
 
     @tf.function(experimental_relax_shapes=True)
-    def training_step_actor(self, observations, actions, advantage_estimate):
+    def training_step_actor(self, observations, actions, advantage_estimate, old_neg_log_prob_a_t=None):
         normalized_advantages = safe_normalize_tf(advantage_estimate)
         with tf.GradientTape() as tape:
             # Policy gradient loss: L = -log π(at|st) * A(at,st)

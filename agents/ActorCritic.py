@@ -39,6 +39,7 @@ class ActorCritic(PolicyGradient):
         # values = tf.squeeze(self.critic_model(observations))
         # returns = calculate_discounted_returns(rewards,self.discount_gamma)
         # advantages = returns - values
+
         actor_loss, actor_gradnorm = self.training_step_actor(observations, actions, advantages)
         critic_loss, critic_gradnorm = self.training_step_critic(observations, returns)
 

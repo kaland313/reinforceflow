@@ -12,6 +12,9 @@ class ProbaDistribution:
 
     def neg_log_prob_a_t(self, network_outputs, sampled_actions):
         NotImplemented
+
+    def prob_a_t(self, network_outputs, sampled_actions):
+        NotImplemented
     
     def log_histograms(self, sampled_actions, network_outputs, tensorboard_summary, step):
         NotImplemented
@@ -23,10 +26,13 @@ class Categorical(ProbaDistribution):
     def sample(self, network_outputs):
         return tf.random.categorical(network_outputs, num_samples=1)[0, 0]
 
+    def prob_a_t(self, network_outputs, sampled_actions):
+        probactions = tf.keras.activations.softmax(network_outputs)
+        probat = tf.reduce_sum(tf.multiply(probactions, tf.one_hot(sampled_actions, depth=self.nn_feature_num)), axis=-1)
+        return probat
+
     def neg_log_prob_a_t(self, network_outputs, sampled_actions):
-        logprobactions = tf.math.log(tf.keras.activations.softmax(network_outputs))
-        logprobat = tf.reduce_sum(tf.multiply(logprobactions, tf.one_hot(sampled_actions, depth=self.nn_feature_num)), axis=-1)
-        return -logprobat
+        return -tf.math.log(self.prob_a_t(network_outputs, sampled_actions))
 
 
 class DiagonalGaussian(ProbaDistribution):
@@ -45,6 +51,12 @@ class DiagonalGaussian(ProbaDistribution):
         action = dist.sample([1])
         action = tf.squeeze(action, axis=range(action.ndim-1))  # keep the last dim, squeeze all others
         return tf.clip_by_value(action, self.action_space.low, self.action_space.high)
+
+    def prob_a_t(self, network_outputs, sampled_actions):
+        mean_vector, std_vector, log_std_vector = self.split_network_feautres(network_outputs)
+        dist = self.tfp_distribution(mean_vector, std_vector)
+        prob_a_t = dist.prob(sampled_actions)
+        return prob_a_t
 
     def neg_log_prob_a_t(self, network_outputs, sampled_actions):
         mean_vector, std_vector, log_std_vector = self.split_network_feautres(network_outputs)

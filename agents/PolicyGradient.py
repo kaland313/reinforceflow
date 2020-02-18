@@ -17,7 +17,8 @@ class PolicyGradient:
                  env,
                  learning_rate=1e-3,
                  discount_gamma=0.99,
-                 global_std_for_continuous_policy=False,
+                 global_std_for_gaussian_policy=False,
+                 tanh_transform_gaussian_policy=True,
                  algo_str="PG"):
         self.algo_str = algo_str
         self.env = env  # type: gym.Env
@@ -25,7 +26,8 @@ class PolicyGradient:
         self.discount_gamma = discount_gamma
 
         self.regularizer = None  # tf.keras.regularizers.l2(0.05)
-        self.global_sigma_for_cont_action = global_std_for_continuous_policy
+        self.global_std_for_gaussian_policy = global_std_for_gaussian_policy
+        self.tanh_transform_gaussian_policy = tanh_transform_gaussian_policy
         self.proba_distribution = None  # type: ProbaDistribution
         self.actor_model = None  # type: tf.keras.Model
         self.actor_trainable_vars = None
@@ -40,10 +42,11 @@ class PolicyGradient:
         if isinstance(self.env.action_space, gym.spaces.Discrete):
             self.proba_distribution = Categorical(self.env.action_space)
         elif isinstance(self.env.action_space, gym.spaces.Box):
-            if self.global_sigma_for_cont_action:
-                self.proba_distribution = DiagonalGaussianGlobalStd(self.env.action_space)
+            if self.global_std_for_gaussian_policy:
+                self.proba_distribution = DiagonalGaussianGlobalStd(self.env.action_space,
+                                                                    self.tanh_transform_gaussian_policy)
             else:
-                self.proba_distribution = DiagonalGaussian(self.env.action_space)
+                self.proba_distribution = DiagonalGaussian(self.env.action_space, self.tanh_transform_gaussian_policy)
         self.actor_model = tf.keras.Sequential([
             layers.Dense(64, activation='relu', kernel_regularizer=self.regularizer,
                          input_shape=self.env.observation_space.shape),

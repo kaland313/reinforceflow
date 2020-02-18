@@ -36,7 +36,6 @@ class ActorCritic(PolicyGradient):
         values = tf.squeeze(self.critic_model(observations))
         advantages, returns = calculate_generalized_advantage_estimate(rewards, values, dones,
                                                                        self.gae_lambda, self.discount_gamma)
-        observations = observations[0:-1]  # The last observation is o_t+1, and it's only needed for gae calculation
         # values = tf.squeeze(self.critic_model(observations))
         # returns = calculate_discounted_returns(rewards,self.discount_gamma)
         # advantages = returns - values

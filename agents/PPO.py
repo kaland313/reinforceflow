@@ -26,7 +26,6 @@ class PPO(ActorCritic):
         values = tf.squeeze(self.critic_model(observations))
         advantages, returns = calculate_generalized_advantage_estimate(rewards, values, dones,
                                                                        self.gae_lambda, self.discount_gamma)
-        observations = observations[0:-1]  # The last observation is o_t+1, and it's only needed for gae calculation
 
         old_network_output = self.actor_model(observations)
         old_neg_log_prob_a_t = self.proba_distribution.neg_log_prob_a_t(old_network_output, actions)

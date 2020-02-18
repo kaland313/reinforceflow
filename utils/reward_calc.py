@@ -24,9 +24,15 @@ def calculate_discounted_returns(rewards, gamma=0.99):
 
 
 def calculate_generalized_advantage_estimate(rewards, values, dones, gae_lambda=0.97, discount_gamma=0.99):
+    # If the state is terminal (done is True), then the value function for the next state is 0
+    # (see Sutton-Barto Reinforcement learning 2nd edition, page 332)
+    # Append such final zero to values
+    values_ = tf.concat([values, tf.zeros((1,))], axis=0)
+
     # delta_t = gamma*V(t+1) + r_t - V(t)
-    Vt = values[:-1]   # the last element is only used as V(t+1), thus it's exlcuded from V(t)
-    Vt1 = values[1:]   # the first element is only used as V(t), thus it's exlcuded from V(t+1)
+    Vt = values_[:-1]   # the last element is only used as V(t+1), thus it's exlcuded from V(t)
+    Vt1 = values_[1:]   # the first element is only used as V(t), thus it's exlcuded from V(t+1)
+
     delta = discount_gamma * Vt1 * (1 - dones) + rewards - Vt
     advantage_estimates = calculate_discounted_returns(delta, gamma=gae_lambda * discount_gamma)
     advantage_estimates = tf.convert_to_tensor(advantage_estimates, dtype='float32')

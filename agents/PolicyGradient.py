@@ -133,8 +133,6 @@ class PolicyGradient:
             _network_outputs.append(network_output)
             episode_steps += 1
 
-        # Append the last observation to be able to calculate V(t+1) when using the generalized advantage estimate
-        _observations.append(obs)
         return _observations, _actions, _rewards, _dones, episode_steps, _network_outputs
 
     def prepare_data(self, actions, observations, rewards, dones):
@@ -148,7 +146,6 @@ class PolicyGradient:
     def training_step(self, observations, actions, rewards, dones, steps):
         returns = calculate_discounted_returns(rewards, self.discount_gamma)
         returns = tf.convert_to_tensor(returns, dtype='float32')
-        observations = observations[0:-1:]  # The last observation is o_t+1, and it's only needed for gae calculation
         ep_loss, ep_gradnorm = self.training_step_actor(observations, actions, advantage_estimate=returns)
         with self.tensorboard_summary.as_default():
             tf.summary.scalar("Training/Actor loss", ep_loss, step=steps)

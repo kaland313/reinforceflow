@@ -27,7 +27,7 @@ class Test(TestCase):
         dones = np.zeros_like(rewards)
         dones[-1] = 1
         np.testing.assert_allclose(discount(rewards, dones, gamma=0.99),
-                                   calculate_discounted_returns(rewards, gamma=0.99))
+                                   calculate_discounted_returns(rewards, dones, gamma=0.99))
         # rewards = np.random.random(10000)*10000
         # np.testing.assert_allclose(discount(rewards, dones, gamma=0.99),
         #                            calculate_discounted_returns(rewards, gamma=0.99))
@@ -41,7 +41,8 @@ class Test(TestCase):
         dones = np.zeros_like(rewards)
         dones[-1] = 1
         np.testing.assert_allclose(compute_gae(rewards, values[0:-1], values[1:], dones, gamma, gae_lambda),
-                                   calculate_generalized_advantage_estimate(rewards, values, dones, gae_lambda, gamma))
+                                   calculate_generalized_advantage_estimate(rewards, values[0:-1], dones, gae_lambda, gamma),
+                                   rtol=1e-6)
 
 if __name__ == '__main__':
     unittest.main()

@@ -12,11 +12,13 @@ class ActorCritic(PolicyGradient):
                  critic_learning_rate=1e-2,
                  discount_gamma=0.99,
                  generalized_advantage_estimate_lambda=0.97,
+                 rollouts_per_trajectory=1,
                  global_std_for_gaussian_policy=False,
                  tanh_transform_gaussian_policy=True,
                  algo_str="A2C"):
-        super(ActorCritic, self).__init__(env, actor_learning_rate, discount_gamma, global_std_for_gaussian_policy,
-                                          tanh_transform_gaussian_policy, algo_str=algo_str)
+        super(ActorCritic, self).__init__(env, actor_learning_rate, discount_gamma, rollouts_per_trajectory,
+                                          global_std_for_gaussian_policy, tanh_transform_gaussian_policy,
+                                          algo_str=algo_str)
         self.critic_learning_rate = critic_learning_rate
         self.gae_lambda = generalized_advantage_estimate_lambda
 

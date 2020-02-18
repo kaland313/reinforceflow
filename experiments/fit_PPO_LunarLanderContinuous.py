@@ -4,7 +4,7 @@ from utils.env_utils import print_env_info
 
 env = gym.make('LunarLanderContinuous-v2')
 print_env_info(env)
-agent = PPO(env, clip_epsilon=0.2)
+agent = PPO(env, rollouts_per_trajectory=5)
 agent.learn(max_timesteps=250e3, render_every_n_episode=100000)
 agent.test(10)
 

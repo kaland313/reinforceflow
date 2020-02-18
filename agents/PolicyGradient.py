@@ -17,6 +17,7 @@ class PolicyGradient:
                  env,
                  learning_rate=1e-3,
                  discount_gamma=0.99,
+                 rollouts_per_trajectory=1,
                  global_std_for_gaussian_policy=False,
                  tanh_transform_gaussian_policy=True,
                  algo_str="PG"):
@@ -24,6 +25,7 @@ class PolicyGradient:
         self.env = env  # type: gym.Env
         self.learning_rate = learning_rate
         self.discount_gamma = discount_gamma
+        self.rollouts_per_trajectory = rollouts_per_trajectory
 
         self.regularizer = None  # tf.keras.regularizers.l2(0.05)
         self.global_std_for_gaussian_policy = global_std_for_gaussian_policy
@@ -81,14 +83,14 @@ class PolicyGradient:
 
             actor_losses.append(actor_loss)
             critic_losses.append(critic_loss)
-            reward_sums.append(np.sum(rewards))
+            reward_sums.append(np.sum(rewards) / self.rollouts_per_trajectory)
             episode_steps_list.append(episode_steps)
             with self.tensorboard_summary.as_default():
-                tf.summary.scalar("Training/Episode reward sum", np.sum(rewards), step=steps)
+                tf.summary.scalar("Training/Episode reward sum", np.sum(rewards) / self.rollouts_per_trajectory, step=steps)
                 tf.summary.histogram("Training/Rewards", rewards, step=steps)
             self.proba_distribution.log_histograms(actions, network_outputs, self.tensorboard_summary, steps)
             if episodes % 10 == 0:
-                print("Episode {:>4d} | Reward: {:>7.3f} | Actor Loss: {:>8.4f} | Critic Loss: {:>8.4f} | "
+                print("Episode {:>4d} | Rollout Reward Sum: {:>7.3f} | Actor Loss: {:>8.4f} | Critic Loss: {:>8.4f} | "
                       "Steps: {:>4.1f} | Total steps:  {:>4d}".format(
                     episodes, np.mean(reward_sums[-10:]), np.mean(actor_losses[-10:]), np.mean(critic_losses[-10:]),
                     np.mean(episode_steps_list[-10:]), np.sum(episode_steps_list)))
@@ -119,7 +121,8 @@ class PolicyGradient:
         obs = self.env.reset()
         done = False
         episode_steps = 0
-        while not done:
+        episodes = 0
+        while not done or episodes < self.rollouts_per_trajectory:
             if render:
                 self.env.render()
             _observations.append(obs)  # record the observation here, because this way _actions[i] will be the one calculated from _observations[i]
@@ -132,6 +135,9 @@ class PolicyGradient:
             _dones.append(done)
             _network_outputs.append(network_output)
             episode_steps += 1
+            if done:
+                episodes += 1
+                obs = self.env.reset()
 
         return _observations, _actions, _rewards, _dones, episode_steps, _network_outputs
 

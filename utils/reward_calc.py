@@ -11,13 +11,14 @@ def safe_normalize_tf(x: tf.Tensor):
         return x - tf.math.reduce_mean(x)
 
 
-def calculate_discounted_returns(rewards, gamma=0.99):
+def calculate_discounted_returns(rewards, dones, gamma=0.99):
     """Finite horizon discounted return"""
     returns = np.zeros_like(rewards)
     for i, _ in enumerate(returns):
-        # We iterate through rewards in reverse, hence "-i", but the last element is indexed as -1
+        # We iterate through rewards and dones in reverse, hence "-i",
+        # but the last element is indexed as -1, thus when i=0 the index should be -1
         returns[i] = rewards[-i - 1]
-        if i != 0:
+        if not dones[-i - 1]:
             # returns[i-1] is just the return at the next timesteps, which include all future rewards discounted
             returns[i] += returns[i - 1] * gamma
     return returns[::-1]
@@ -34,7 +35,7 @@ def calculate_generalized_advantage_estimate(rewards, values, dones, gae_lambda=
     Vt1 = values_[1:]   # the first element is only used as V(t), thus it's exlcuded from V(t+1)
 
     delta = discount_gamma * Vt1 * (1 - dones) + rewards - Vt
-    advantage_estimates = calculate_discounted_returns(delta, gamma=gae_lambda * discount_gamma)
+    advantage_estimates = calculate_discounted_returns(delta, dones, gamma=gae_lambda * discount_gamma)
     advantage_estimates = tf.convert_to_tensor(advantage_estimates, dtype='float32')
     # A = V - Q ~= returns - values
     returns = advantage_estimates + Vt

@@ -11,14 +11,15 @@ class PPO(ActorCritic):
                  critic_learning_rate=1e-2,
                  discount_gamma=0.99,
                  generalized_advantage_estimate_lambda=0.97,
+                 rollouts_per_trajectory=1,
                  global_std_for_gaussian_policy=False,
                  tanh_transform_gaussian_policy=True,
                  algo_str="PPO",
                  clip_epsilon=0.2,
                  policy_train_epochs=10):
         super(PPO, self).__init__(env, actor_learning_rate, critic_learning_rate, discount_gamma,
-                                  generalized_advantage_estimate_lambda, global_std_for_gaussian_policy,
-                                  tanh_transform_gaussian_policy, algo_str)
+                                  generalized_advantage_estimate_lambda, rollouts_per_trajectory,
+                                  global_std_for_gaussian_policy, tanh_transform_gaussian_policy, algo_str)
         self.clip_epsilon = clip_epsilon
         self.policy_train_epochs = policy_train_epochs
 

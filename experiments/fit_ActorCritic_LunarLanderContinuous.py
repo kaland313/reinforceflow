@@ -4,34 +4,26 @@ from utils.env_utils import print_env_info
 
 env = gym.make('LunarLanderContinuous-v2')
 print_env_info(env)
-agent = ActorCritic(env)
+agent = ActorCritic(env, global_std_for_gaussian_policy=True, tanh_transform_gaussian_policy=False)
 agent.learn(max_timesteps=250000, render_every_n_episode=100000)
 agent.test(10)
 
 ###############################################################
 # Results
-# Episode   10 | Reward: -235.399 | Actor Loss:   0.0411 | Critic Loss: 4111.4365 | Steps: 101.8 | Total steps:  1018
+# Episode   10 | Rollout Reward Sum: -222.853 | Actor Loss:  -0.0089 | Critic Loss: 4078.2476 | Steps: 105.8 | Total steps:  1058
 # ...
-# Episode  260 | Reward: -193.985 | Actor Loss:   0.0130 | Critic Loss: 406.0867 | Steps: 496.2 | Total steps:  51729
-# Episode  270 | Reward: -86.613 | Actor Loss:  -0.0459 | Critic Loss: 480.8434 | Steps: 350.8 | Total steps:  55237
+# Episode  300 | Rollout Reward Sum: -120.277 | Actor Loss:  -0.0385 | Critic Loss: 671.9962 | Steps: 274.6 | Total steps:  48092
+# Episode  310 | Rollout Reward Sum: -88.077 | Actor Loss:  -0.0230 | Critic Loss: 569.6835 | Steps: 355.9 | Total steps:  51651
 # ...
-# Episode  330 | Reward: -142.995 | Actor Loss:  -0.0692 | Critic Loss: 369.9376 | Steps: 843.0 | Total steps:  95363
-# Episode  340 | Reward: -23.626 | Actor Loss:  -0.0712 | Critic Loss: 204.2929 | Steps: 500.3 | Total steps:  100366
+# Episode  410 | Rollout Reward Sum: -20.237 | Actor Loss:  -0.0021 | Critic Loss: 197.7371 | Steps: 389.6 | Total steps:  99121
+# Episode  420 | Rollout Reward Sum: -172.291 | Actor Loss:   0.0073 | Critic Loss: 296.2503 | Steps: 629.9 | Total steps:  105420
 # ...
-# Episode  440 | Reward: -27.583 | Actor Loss:  -0.0548 | Critic Loss:  74.0368 | Steps: 938.4 | Total steps:  194615
-# Episode  450 | Reward: -39.442 | Actor Loss:  -0.1017 | Critic Loss:  95.4745 | Steps: 1000.0 | Total steps:  204615
-# Episode  460 | Reward: -46.753 | Actor Loss:  -0.0627 | Critic Loss: 139.1243 | Steps: 939.5 | Total steps:  214010
-# Episode  470 | Reward: -32.150 | Actor Loss:  -0.1046 | Critic Loss: 155.4516 | Steps: 895.0 | Total steps:  222960
-# Episode  480 | Reward: -13.466 | Actor Loss:  -0.0965 | Critic Loss:  85.5973 | Steps: 940.3 | Total steps:  232363
-# Episode  490 | Reward: -29.066 | Actor Loss:  -0.0602 | Critic Loss:  56.5770 | Steps: 1000.0 | Total steps:  242363
-
-###############################################################
-# Notes
-# - Action histograms show that only -1 and 1 are sampled
-# - Mean is mostly around 0. and is always inside [-1, 1]
-# - Std is large (hundreds), and slowly gets unstable around 100-120k steps
-# - Tahn transforming the normal distribution solved these problems and converges to ~0 return
-#   > The agent is almost capable of softly landing the spacecraft but it doesn't turn off the thrusters upon touchdown
-#
-
-
+# Episode  470 | Rollout Reward Sum: -14.090 | Actor Loss:  -0.0080 | Critic Loss: 128.1878 | Steps: 918.4 | Total steps:  145725
+# Episode  480 | Rollout Reward Sum: -75.831 | Actor Loss:  -0.0047 | Critic Loss: 105.8857 | Steps: 900.6 | Total steps:  154731
+# ...
+# Episode  540 | Rollout Reward Sum:  11.979 | Actor Loss:  -0.0221 | Critic Loss: 337.3446 | Steps: 441.0 | Total steps:  205384
+# Episode  550 | Rollout Reward Sum:  55.535 | Actor Loss:  -0.0016 | Critic Loss: 169.7236 | Steps: 753.5 | Total steps:  212919
+# Episode  560 | Rollout Reward Sum:  -0.770 | Actor Loss:  -0.0073 | Critic Loss: 162.3494 | Steps: 710.9 | Total steps:  220028
+# Episode  570 | Rollout Reward Sum:  44.120 | Actor Loss:   0.0179 | Critic Loss:  99.7854 | Steps: 933.9 | Total steps:  229367
+# Episode  580 | Rollout Reward Sum:  40.557 | Actor Loss:  -0.0018 | Critic Loss: 123.3792 | Steps: 905.5 | Total steps:  238422
+# Episode  590 | Rollout Reward Sum:  17.012 | Actor Loss:  -0.0189 | Critic Loss: 117.6929 | Steps: 960.1 | Total steps:  248023

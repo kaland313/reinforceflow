@@ -46,7 +46,7 @@ class PolicyGradient:
         elif isinstance(self.env.action_space, gym.spaces.Box):
             if self.global_std_for_gaussian_policy:
                 self.proba_distribution = DiagonalGaussianGlobalStd(self.env.action_space,
-                                                                    self.tanh_transform_gaussian_policy)
+                                                                    tanh_transform=self.tanh_transform_gaussian_policy)
             else:
                 self.proba_distribution = DiagonalGaussian(self.env.action_space, self.tanh_transform_gaussian_policy)
         self.actor_model = tf.keras.Sequential([

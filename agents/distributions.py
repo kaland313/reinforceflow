@@ -50,7 +50,8 @@ class DiagonalGaussian(ProbaDistribution):
         dist = self.tfp_distribution(mean_vector, std_vector)
         action = dist.sample([1])
         action = tf.squeeze(action, axis=range(action.ndim-1))  # keep the last dim, squeeze all others
-        return tf.clip_by_value(action, self.action_space.low, self.action_space.high)
+        action = tf.clip_by_value(action, self.action_space.low, self.action_space.high)
+        return action
 
     def prob_a_t(self, network_outputs, sampled_actions):
         mean_vector, std_vector, log_std_vector = self.split_network_feautres(network_outputs)
@@ -90,10 +91,10 @@ class DiagonalGaussian(ProbaDistribution):
 
 
 class DiagonalGaussianGlobalStd(ProbaDistribution):
-    def __init__(self, action_space, initial_value=1., tanh_transform=True):
+    def __init__(self, action_space, initial_std=0.5, tanh_transform=True):
         super(DiagonalGaussianGlobalStd, self).__init__(action_space.shape[0])
         self.action_space = action_space  # type: gym.spaces.Box
-        self.log_std = tf.Variable(initial_value, trainable=True, name="action_global_log_std")
+        self.log_std = tf.Variable(np.log(initial_std), trainable=True, name="action_global_log_std", dtype='float32')
         self.tanh_transform = tanh_transform
         if self.tanh_transform:
             self.transform_scale = (self.action_space.high - self.action_space.low) / 2.
@@ -102,8 +103,10 @@ class DiagonalGaussianGlobalStd(ProbaDistribution):
     def sample(self, network_outputs):
         mean_vector = network_outputs
         random_normal = tf.random.normal(shape=mean_vector.shape)
-        action = (random_normal * self.log_std + mean_vector)[0]
-        return tf.clip_by_value(action, self.action_space.low, self.action_space.high)
+        std = tf.exp(self.log_std)
+        action = (random_normal * std + mean_vector)[0]
+        # action = tf.clip_by_value(action, self.action_space.low, self.action_space.high)
+        return action
 
     def neg_log_prob_a_t(self, network_outputs, sampled_actions):
         mean_vector = network_outputs

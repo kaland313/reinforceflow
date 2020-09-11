@@ -1,13 +1,14 @@
 # Reinforceflow
 Implementing basic RL algorithms usingTensorflow 2.x mainly for self education. 
-My main goal is to implement Proximal Policy Optimisation ([Schulman et al.](https://arxiv.org/abs/1707.06347)) by first implementing simpler policy gradient algorithms,
-then work towrads a full implementation of PPO.
+My goal is to implement Proximal Policy Optimisation ([Schulman et al.](https://arxiv.org/abs/1707.06347)) by first implementing simpler policy gradient algorithms,
+then work towrads a more complete implementation of PPO.
 
 The algoritm (versions) implemented are: 
 
 - [x] Policy Gradient (REINFORCE)
 - [x] Actor Critic
 - [x] PPO with clipping loss function
+- [ ] PPO with KL divergence loss function
 
 Fatures of the "library" (including plans):
 - [x] Tensorboard logging

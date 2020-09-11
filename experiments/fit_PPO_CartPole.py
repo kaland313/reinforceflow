@@ -6,6 +6,7 @@ env = gym.make('CartPole-v1')
 print_env_info(env)
 agent = PPO(env)
 agent.learn(max_timesteps=50000, render_every_n_episode=100000)
+agent.save_video()
 agent.test(10)
 
 ###############################################################

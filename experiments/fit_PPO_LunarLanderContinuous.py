@@ -6,6 +6,7 @@ env = gym.make('LunarLanderContinuous-v2')
 print_env_info(env)
 agent = PPO(env, rollouts_per_trajectory=5, global_std_for_gaussian_policy=True, tanh_transform_gaussian_policy=False)
 agent.learn(max_timesteps=250e3, render_every_n_episode=100000)
+agent.save_video()
 agent.test(10)
 
 ###############################################################

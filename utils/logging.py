@@ -35,7 +35,7 @@ def tensorboard_setup(base_path='tensorboard', run_subfolder="date-time", run_la
     run_subfolder += "_" + run_label
     tensorboard_root = os.path.join(base_path, run_subfolder)
     summary_writer = tf.summary.create_file_writer(tensorboard_root)
-    return summary_writer
+    return summary_writer, tensorboard_root
 
 
 def history_dict_to_tensorboard(summary_writer, history_dict, step):

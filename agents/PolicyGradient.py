@@ -1,5 +1,6 @@
 import numpy as np
 import gym
+from gym import wrappers
 import tensorflow as tf
 import tensorflow.keras.layers as layers
 import matplotlib.pyplot as plt
@@ -36,7 +37,8 @@ class PolicyGradient:
 
         self.setup_actor_model()
         self.actor_optimizer = tf.optimizers.Adam(learning_rate=self.learning_rate)
-        self.tensorboard_summary = tensorboard_setup(run_label=env.spec.id + "_" + self.algo_str)  # type: tf.summary.SummaryWriter
+        self.tensorboard_summary, self.tensorboard_path = \
+            tensorboard_setup(run_label=env.spec.id + "_" + self.algo_str)  # type: tf.summary.SummaryWriter
 
 
     def setup_actor_model(self):
@@ -190,4 +192,16 @@ class PolicyGradient:
         print("Test | Reward: {:>7.3f} | Steps: {:>5.1f} | Total steps:  {:>4d}".format(
             np.mean(reward_sums), np.mean(episode_steps_list), np.sum(episode_steps_list)))
 
-
+    def save_video(self):
+        """
+        Evaluate the agent in the environment for an episode and record a video using gym.wrappers.Monitor
+        """
+        monitored_env = wrappers.Monitor(self.env, directory=self.tensorboard_path, mode='evaluation', force=True,
+                                         write_upon_reset=True, uid="")
+        obs = monitored_env.reset()
+        done = False
+        while not done:
+            network_output = self.actor_model(obs[None, ...])
+            action = self.proba_distribution.sample(network_output)
+            obs, _, done, _ = monitored_env.step(action.numpy())
+        monitored_env.close()

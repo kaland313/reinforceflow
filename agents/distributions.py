@@ -4,35 +4,83 @@ import gym.spaces
 import tensorflow_probability as tfp
 
 class ProbaDistribution:
+    """Abstract class whose subclasses should implement the probabilistic outputs of reinforcement learning agents.
+    Subclasses could be simply wrappers of tf and tfp distributions.
+    """
     def __init__(self, nn_feature_num):
         self.nn_feature_num = nn_feature_num
 
-    def sample(self, network_outputs):
-        NotImplemented
+    def sample(self, network_outputs) -> tf.Tensor:
+        """Return samples from a distribution that is parameterised by network_outputs.
+        E.g.: - network_outputs defines mean and variance of a gaussian distribution.
+              - network_outputs defines class probabilities of a categorical distribution.
+        """
+        raise NotImplemented
 
     def neg_log_prob_a_t(self, network_outputs, sampled_actions):
-        NotImplemented
+        """Return the negative *(-1) log probabilities of sampled actions, assuming that they were sampled form
+        a distribution that is parameterised by network_outputs."""
+        raise NotImplemented
 
     def prob_a_t(self, network_outputs, sampled_actions):
-        NotImplemented
+        """Return the probabilities of sampled actions, assuming that they were sampled form a distribution that
+        is parameterised by network_outputs."""
+        raise NotImplemented
+
+    def kl(self, network_outputs_p, network_outputs_q):
+        """Calculate the Kullback-Leibler divergence of p and q distributions, which are parameterised by
+        network_outputs_p and network_outputs_q.
+        p and q belong to the same distribution class (e.g. n class categorical), but with different parameters.
+        """
+        raise NotImplemented
     
     def log_histograms(self, sampled_actions, network_outputs, tensorboard_summary, step):
-        NotImplemented
+        """Log histograms for the distribution in Tensorboard."""
+        pass
         
 class Categorical(ProbaDistribution):
     def __init__(self, action_space):
         super(Categorical, self).__init__(action_space.n)
 
     def sample(self, network_outputs):
-        return tf.random.categorical(network_outputs, num_samples=1)[0, 0]
+        """
+        :param network_outputs: Log-probabilities for all classes, 2-D Tensor with shape [batch_size, num_classes]
+        :return: Scalar (Tensor with shape=()) or 1-D tensor, depending on batch_size
+        Example:
+            >>> import random
+            >>> random.seed(1)
+            >>> dist = Categorical(gym.spaces.Discrete(4))
+            >>> sample = dist.sample(np.array([[0.1, 0.4, 0.2, 0.3]])).numpy()
+            2
+        """
+        return tf.squeeze(tf.random.categorical(network_outputs, num_samples=1))
 
     def prob_a_t(self, network_outputs, sampled_actions):
+        """
+        :param network_outputs: Log-probabilities for all classes, 2-D Tensor with shape [batch_size, num_classes]
+        :param sampled_actions: tf.Tensor or np.array of integers in the [0, num_classes] range
+        :return: tf.Tensor with the same shame as sampled_actions
+        Example:
+            >>> dist = Categorical(gym.spaces.Discrete(4))
+            >>> dist.prob_a_t(tf.convert_to_tensor(np.log([[0.1, 0.4, 0.2, 0.3]]), dtype=tf.float32), np.array([2]))
+            0.2
+        """
         probactions = tf.keras.activations.softmax(network_outputs)
         probat = tf.reduce_sum(tf.multiply(probactions, tf.one_hot(sampled_actions, depth=self.nn_feature_num)), axis=-1)
         return probat
 
     def neg_log_prob_a_t(self, network_outputs, sampled_actions):
         return -tf.math.log(self.prob_a_t(network_outputs, sampled_actions))
+
+    def kl(self, network_outputs_p, network_outputs_q):
+        """
+        :param network_outputs_p: Log-probabilities for all classes, 2-D Tensor with shape [batch_size, num_classes]
+        :param network_outputs_q: Log-probabilities for all classes, 2-D Tensor with shape [batch_size, num_classes]
+        """
+        # network_outputs_p and network_outputs_q are logits, to get probability distribution (like) numbers use softmax
+        p = tf.keras.activations.softmax(network_outputs_p)
+        q = tf.keras.activations.softmax(network_outputs_q)
+        return tf.reduce_sum(tf.multiply(p, tf.math.log(tf.math.divide(p, q))), axis=-1)
 
 
 class DiagonalGaussian(ProbaDistribution):

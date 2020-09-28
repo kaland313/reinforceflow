@@ -16,12 +16,18 @@ class PPO(ActorCritic):
                  tanh_transform_gaussian_policy=True,
                  algo_str="PPO",
                  clip_epsilon=0.2,
-                 policy_train_epochs=10):
+                 policy_train_epochs=10,
+                 kl_target=0.01,
+                 init_kl_coef=0.2,
+                 use_kl_loss=True):
         super(PPO, self).__init__(env, actor_learning_rate, critic_learning_rate, discount_gamma,
                                   generalized_advantage_estimate_lambda, rollouts_per_trajectory,
                                   global_std_for_gaussian_policy, tanh_transform_gaussian_policy, algo_str)
         self.clip_epsilon = clip_epsilon
         self.policy_train_epochs = policy_train_epochs
+        self.kl_target = kl_target              # denoted by d_targ in the PPO paper (default value is from rllib)
+        self.cur_kl_coeff = init_kl_coef        # denoted by beta in the PPO paper (default value is from rllib)
+        self.use_kl_loss = use_kl_loss
 
     def training_step(self, observations, actions, rewards, dones, steps):
         values = tf.squeeze(self.critic_model(observations))
@@ -29,10 +35,9 @@ class PPO(ActorCritic):
                                                                        self.gae_lambda, self.discount_gamma)
 
         old_network_output = self.actor_model(observations)
-        old_neg_log_prob_a_t = self.proba_distribution.neg_log_prob_a_t(old_network_output, actions)
         for epochs in range(self.policy_train_epochs):
             actor_loss, actor_gradnorm = self.training_step_actor(observations, actions, advantages,
-                                                                  old_neg_log_prob_a_t)
+                                                                  old_network_output)
             critic_loss, critic_gradnorm = self.training_step_critic(observations, returns)
 
         with self.tensorboard_summary.as_default():
@@ -46,8 +51,9 @@ class PPO(ActorCritic):
 
 
     # @tf.function(experimental_relax_shapes=True)
-    def training_step_actor(self, observations, actions, advantage_estimate, old_neg_log_prob_a_t=None):
-        assert old_neg_log_prob_a_t is not None
+    def training_step_actor(self, observations, actions, advantage_estimate, old_network_output=None):
+        assert old_network_output is not None
+        old_neg_log_prob_a_t = self.proba_distribution.neg_log_prob_a_t(old_network_output, actions)
         normalized_advantages = safe_normalize_tf(advantage_estimate)
 
         # According to https://arxiv.org/abs/1707.06347: the probability ratioris clipped at 1−epsion or 1 + epsilon
@@ -64,11 +70,27 @@ class PPO(ActorCritic):
             prob_ratio = tf.exp(-neg_log_prob_at + old_neg_log_prob_a_t)
             L_CPI = prob_ratio * normalized_advantages
             clipped_term = tf.clip_by_value(prob_ratio, 1. - self.clip_epsilon, 1. + self.clip_epsilon) * normalized_advantages
-            L_CLIP = tf.reduce_mean(tf.math.minimum(L_CPI, clipped_term))
-            loss = -L_CLIP
+            L_CLIP = tf.math.minimum(L_CPI, clipped_term)
+            if self.use_kl_loss:
+                sampled_kl = self.proba_distribution.kl(old_network_output, network_output)
+                L_KLPEN = L_CPI - self.cur_kl_coeff * sampled_kl
+            else:
+                L_KLPEN = 0
+
+            # Combined Clipping and KL penalty loss function as in rllib's implementation
+            # https://github.com/ray-project/ray/blob/79c6a6fa02e58aa9432eb2463d093221903cfead/rllib/agents/ppo/ppo_tf_policy.py#L93
+            loss = -tf.reduce_mean(L_CLIP + L_KLPEN)
 
         gradients = tape.gradient(loss, self.actor_trainable_vars)
         self.actor_optimizer.apply_gradients(zip(gradients, self.actor_trainable_vars))
+        if self.use_kl_loss:
+            self.update_kl_coeff(sampled_kl)
         return tf.reduce_mean(loss), tf.linalg.global_norm(gradients)
 
 
+    def update_kl_coeff(self, sampled_kl):
+        expected_sampled_kl = tf.reduce_mean(sampled_kl)       # Expected value over a trajectory or over time
+        if expected_sampled_kl < self.kl_target / 1.5:
+            self.cur_kl_coeff /= 2
+        if expected_sampled_kl > self.kl_target * 1.5:
+            self.cur_kl_coeff *= 2

@@ -41,10 +41,11 @@ class PPO(ActorCritic):
             critic_loss, critic_gradnorm = self.training_step_critic(observations, returns)
 
         with self.tensorboard_summary.as_default():
-            tf.summary.scalar("Training/Actor loss", actor_loss, step=steps)
+            tf.summary.scalar("Losses/Actor loss", actor_loss, step=steps)
             tf.summary.scalar("Training/Actor Grad Norm", actor_gradnorm, step=steps)
-            tf.summary.scalar("Training/Critic loss", critic_loss, step=steps)
+            tf.summary.scalar("Losses/Critic loss", critic_loss, step=steps)
             tf.summary.scalar("Training/Critic Grad Norm", critic_gradnorm, step=steps)
+            tf.summary.scalar("Training/KL-coeff Beta", self.cur_kl_coeff, step=steps)
             tf.summary.histogram("Training/Advantages", advantages, step=steps)
             tf.summary.histogram("Training/Returns", returns, step=steps)
         return actor_loss, critic_loss

@@ -3,6 +3,7 @@ import tensorflow as tf
 import gym.spaces
 import tensorflow_probability as tfp
 
+
 class ProbaDistribution:
     """Abstract class whose subclasses should implement the probabilistic outputs of reinforcement learning agents.
     Subclasses could be simply wrappers of tf and tfp distributions.
@@ -37,7 +38,8 @@ class ProbaDistribution:
     def log_histograms(self, sampled_actions, network_outputs, tensorboard_summary, step):
         """Log histograms for the distribution in Tensorboard."""
         pass
-        
+
+
 class Categorical(ProbaDistribution):
     def __init__(self, action_space):
         super(Categorical, self).__init__(action_space.n)
@@ -94,7 +96,7 @@ class DiagonalGaussian(ProbaDistribution):
             self.transform_shift = (self.action_space.high + self.action_space.low) / 2.
 
     def sample(self, network_outputs):
-        mean_vector, std_vector, _ = self.split_network_feautres(network_outputs)
+        mean_vector, std_vector, _ = self.split_network_features(network_outputs)
         dist = self.tfp_distribution(mean_vector, std_vector)
         action = dist.sample([1])
         action = tf.squeeze(action, axis=range(action.ndim-1))  # keep the last dim, squeeze all others
@@ -102,19 +104,26 @@ class DiagonalGaussian(ProbaDistribution):
         return action
 
     def prob_a_t(self, network_outputs, sampled_actions):
-        mean_vector, std_vector, log_std_vector = self.split_network_feautres(network_outputs)
+        mean_vector, std_vector, log_std_vector = self.split_network_features(network_outputs)
         dist = self.tfp_distribution(mean_vector, std_vector)
         prob_a_t = dist.prob(sampled_actions)
         return prob_a_t
 
     def neg_log_prob_a_t(self, network_outputs, sampled_actions):
-        mean_vector, std_vector, log_std_vector = self.split_network_feautres(network_outputs)
+        mean_vector, std_vector, log_std_vector = self.split_network_features(network_outputs)
         dist = self.tfp_distribution(mean_vector, std_vector)
         log_prob_a_t = dist.log_prob(sampled_actions)
         return -log_prob_a_t
 
+    def kl(self, network_outputs_p, network_outputs_q):
+        mean_vector_p, std_vector_p, _ = self.split_network_features(network_outputs_p)
+        p = self.tfp_distribution(mean_vector_p, std_vector_p)
+        mean_vector_q, std_vector_q, _ = self.split_network_features(network_outputs_q)
+        q = self.tfp_distribution(mean_vector_q, std_vector_q)
+        return tfp.distributions.kl_divergence(p, q)
+
     @staticmethod
-    def split_network_feautres(network_outputs):
+    def split_network_features(network_outputs):
         mean_vector, log_std_vector = tf.split(network_outputs, num_or_size_splits=2, axis=-1)
         std_vector = tf.exp(log_std_vector)
         return mean_vector, std_vector, log_std_vector
@@ -122,7 +131,7 @@ class DiagonalGaussian(ProbaDistribution):
     def log_histograms(self, sampled_actions, network_outputs, tensorboard_summary, step):
         with tensorboard_summary.as_default():
             tf.summary.histogram("Actions/Sampled actions", sampled_actions, step=step, )
-            mean_vector, std_vector, _ = self.split_network_feautres(network_outputs)
+            mean_vector, std_vector, _ = self.split_network_features(network_outputs)
             tf.summary.histogram("Actions/Predicted mean", mean_vector, step=step)
             tf.summary.histogram("Actions/Predicted std", std_vector, step=step)
 
@@ -162,6 +171,15 @@ class DiagonalGaussianGlobalStd(ProbaDistribution):
         dist = self.tfp_distribution(mean_vector=mean_vector, std_vector=tf.ones_like(mean_vector[0])*std)
         log_prob_a_t = dist.log_prob(sampled_actions)
         return -log_prob_a_t
+
+    def kl(self, network_outputs_p, network_outputs_q):
+        mean_vector_p = network_outputs_p
+        std = tf.exp(self.log_std)
+        p = self.tfp_distribution(mean_vector=mean_vector_p, std_vector=tf.ones_like(mean_vector_p[0]) * std)
+        mean_vector_q = network_outputs_q
+        # std = tf.exp(self.log_std)
+        q = self.tfp_distribution(mean_vector=mean_vector_q, std_vector=tf.ones_like(mean_vector_p[0]) * std)
+        return tfp.distributions.kl_divergence(p, q)
 
     def log_histograms(self, sampled_actions, network_outputs, tensorboard_summary, step):
         with tensorboard_summary.as_default():

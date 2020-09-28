@@ -8,7 +8,7 @@ The algoritm (versions) implemented are:
 - [x] Policy Gradient (REINFORCE)
 - [x] Actor Critic
 - [x] PPO with clipping loss function
-- [ ] PPO with KL divergence loss function
+- [x] PPO with KL penalty loss function
 
 Fatures of the "library" (including plans):
 - [x] Tensorboard logging

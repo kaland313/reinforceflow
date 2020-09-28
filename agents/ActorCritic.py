@@ -42,17 +42,13 @@ class ActorCritic(PolicyGradient):
         # returns = calculate_discounted_returns(rewards,self.discount_gamma)
         # advantages = returns - values
 
-        actor_loss, actor_gradnorm = self.training_step_actor(observations, actions, advantages)
-        critic_loss, critic_gradnorm = self.training_step_critic(observations, returns)
-
-        with self.tensorboard_summary.as_default():
-            tf.summary.scalar("Training/Actor loss", actor_loss, step=steps)
-            tf.summary.scalar("Training/Actor Grad Norm", actor_gradnorm, step=steps)
-            tf.summary.scalar("Training/Critic loss", critic_loss, step=steps)
-            tf.summary.scalar("Training/Critic Grad Norm", critic_gradnorm, step=steps)
-            tf.summary.histogram("Training/Advantages", advantages, step=steps)
-            tf.summary.histogram("Training/Returns", returns, step=steps)
-        return actor_loss, critic_loss
+        metrics_actor = self.training_step_actor(observations, actions, advantages)
+        metrics_critic = self.training_step_critic(observations, returns)
+        metrics = {**metrics_actor, **metrics_critic}
+        histograms = {"Episode metrics/Returns": returns,
+                      "Episode metrics/Advantages": advantages}
+        self.log_metrics(metrics, histograms, steps)
+        return metrics["Losses/Actor Loss Total"], metrics["Losses/Critic Loss Total"]
 
     @tf.function(experimental_relax_shapes=True)
     def training_step_critic(self, observations, targets):
@@ -61,4 +57,5 @@ class ActorCritic(PolicyGradient):
             loss = self.critic_loss(targets, predictions)
         gradients = tape.gradient(loss, self.critic_model.trainable_variables)
         self.critic_optimizer.apply_gradients(zip(gradients, self.critic_model.trainable_variables))
-        return tf.reduce_mean(loss), tf.linalg.global_norm(gradients)
+        return {"Losses/Critic Loss Total": tf.reduce_mean(loss),
+                "Losses/Critic Grad Norm": tf.linalg.global_norm(gradients)}

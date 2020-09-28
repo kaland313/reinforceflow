@@ -130,10 +130,10 @@ class DiagonalGaussian(ProbaDistribution):
         
     def log_histograms(self, sampled_actions, network_outputs, tensorboard_summary, step):
         with tensorboard_summary.as_default():
-            tf.summary.histogram("Actions/Sampled actions", sampled_actions, step=step, )
+            tf.summary.histogram("Probabilistic Actions/Sampled actions", sampled_actions, step=step, )
             mean_vector, std_vector, _ = self.split_network_features(network_outputs)
-            tf.summary.histogram("Actions/Predicted mean", mean_vector, step=step)
-            tf.summary.histogram("Actions/Predicted std", std_vector, step=step)
+            tf.summary.histogram("Probabilistic Actions/Predicted mean", mean_vector, step=step)
+            tf.summary.histogram("Probabilistic Actions/Predicted std", std_vector, step=step)
 
     def tfp_distribution(self, mean_vector, std_vector):
         dist = tfp.distributions.MultivariateNormalDiag(loc=mean_vector, scale_diag=std_vector)
@@ -183,9 +183,9 @@ class DiagonalGaussianGlobalStd(ProbaDistribution):
 
     def log_histograms(self, sampled_actions, network_outputs, tensorboard_summary, step):
         with tensorboard_summary.as_default():
-            tf.summary.histogram("Actions/Sampled actions", sampled_actions, step=step)
-            tf.summary.histogram("Actions/Predicted mean", network_outputs, step=step)
-            tf.summary.scalar("Actions/Global action std", tf.exp(self.log_std), step=step)
+            tf.summary.histogram("Probabilistic Actions/Sampled actions", sampled_actions, step=step)
+            tf.summary.histogram("Probabilistic Actions/Predicted mean", network_outputs, step=step)
+            tf.summary.scalar("Probabilistic Actions/Global action std", tf.exp(self.log_std), step=step)
 
     def tfp_distribution(self, mean_vector, std_vector):
         dist = tfp.distributions.MultivariateNormalDiag(loc=mean_vector, scale_diag=std_vector)

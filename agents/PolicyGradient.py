@@ -88,8 +88,8 @@ class PolicyGradient:
             reward_sums.append(np.sum(rewards) / self.rollouts_per_trajectory)
             episode_steps_list.append(episode_steps)
             with self.tensorboard_summary.as_default():
-                tf.summary.scalar("Training/Episode reward sum", np.sum(rewards) / self.rollouts_per_trajectory, step=steps)
-                tf.summary.histogram("Training/Rewards", rewards, step=steps)
+                tf.summary.scalar("Episode metrics/Episode reward sum", np.sum(rewards) / self.rollouts_per_trajectory, step=steps)
+                tf.summary.histogram("Episode metrics/Rewards", rewards, step=steps)
             self.proba_distribution.log_histograms(actions, network_outputs, self.tensorboard_summary, steps)
             if episodes % 10 == 0:
                 print("Episode {:>4d} | Rollout Reward Sum: {:>7.3f} | Actor Loss: {:>8.4f} | Critic Loss: {:>8.4f} | "
@@ -154,12 +154,9 @@ class PolicyGradient:
     def training_step(self, observations, actions, rewards, dones, steps):
         returns = calculate_discounted_returns(rewards, self.discount_gamma)
         returns = tf.convert_to_tensor(returns, dtype='float32')
-        ep_loss, ep_gradnorm = self.training_step_actor(observations, actions, advantage_estimate=returns)
-        with self.tensorboard_summary.as_default():
-            tf.summary.scalar("Training/Actor loss", ep_loss, step=steps)
-            tf.summary.scalar("Training/Actor Grad Norm", ep_gradnorm, step=steps)
-            tf.summary.histogram("Training/Returns", returns, step=steps)
-        return ep_loss, np.nan
+        metrics = self.training_step_actor(observations, actions, advantage_estimate=returns)
+        self.log_metrics(metrics, {"Episode metrics/Returns": returns}, steps)
+        return metrics["Losses/Actor Loss Total"], np.nan
 
     @tf.function(experimental_relax_shapes=True)
     def training_step_actor(self, observations, actions, advantage_estimate, old_neg_log_prob_a_t=None):
@@ -177,7 +174,15 @@ class PolicyGradient:
 
         gradients = tape.gradient(loss, self.actor_trainable_vars)
         self.actor_optimizer.apply_gradients(zip(gradients, self.actor_trainable_vars))
-        return tf.reduce_mean(loss), tf.linalg.global_norm(gradients)
+        return {"Losses/Actor Loss Total": tf.reduce_mean(loss),
+                "Losses/Actor Grad Norm": tf.linalg.global_norm(gradients)}
+
+    def log_metrics(self, scalars_metrics: dict, histogram_metrics: dict, steps):
+        with self.tensorboard_summary.as_default():
+            for key, val in scalars_metrics.items():
+                tf.summary.scalar(key, val, step=steps)
+            for key, val in histogram_metrics.items():
+                tf.summary.histogram(key, val, step=steps)
 
     def test(self, n_episodes=10):
         episodes = 1

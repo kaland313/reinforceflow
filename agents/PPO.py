@@ -36,19 +36,14 @@ class PPO(ActorCritic):
 
         old_network_output = self.actor_model(observations)
         for epochs in range(self.policy_train_epochs):
-            actor_loss, actor_gradnorm = self.training_step_actor(observations, actions, advantages,
+            metrics_actor = self.training_step_actor(observations, actions, advantages,
                                                                   old_network_output)
-            critic_loss, critic_gradnorm = self.training_step_critic(observations, returns)
-
-        with self.tensorboard_summary.as_default():
-            tf.summary.scalar("Losses/Actor loss", actor_loss, step=steps)
-            tf.summary.scalar("Training/Actor Grad Norm", actor_gradnorm, step=steps)
-            tf.summary.scalar("Losses/Critic loss", critic_loss, step=steps)
-            tf.summary.scalar("Training/Critic Grad Norm", critic_gradnorm, step=steps)
-            tf.summary.scalar("Training/KL-coeff Beta", self.cur_kl_coeff, step=steps)
-            tf.summary.histogram("Training/Advantages", advantages, step=steps)
-            tf.summary.histogram("Training/Returns", returns, step=steps)
-        return actor_loss, critic_loss
+            metrics_critic = self.training_step_critic(observations, returns)
+        metrics = {**metrics_actor, **metrics_critic}
+        histograms = {"Episode metrics/Returns": returns,
+                      "Episode metrics/Advantages": advantages}
+        self.log_metrics(metrics, histograms, steps)
+        return metrics["Losses/Actor Loss Total"], metrics["Losses/Critic Loss Total"]
 
 
     # @tf.function(experimental_relax_shapes=True)
@@ -86,7 +81,10 @@ class PPO(ActorCritic):
         self.actor_optimizer.apply_gradients(zip(gradients, self.actor_trainable_vars))
         if self.use_kl_loss:
             self.update_kl_coeff(sampled_kl)
-        return tf.reduce_mean(loss), tf.linalg.global_norm(gradients)
+        return {"Losses/Actor Loss Total": tf.reduce_mean(loss),
+                "Losses/Actor Loss CLIP": -tf.reduce_mean(L_CLIP),
+                "Losses/Actor Loss KLPEN": -tf.reduce_mean(L_KLPEN),
+                "Losses/Actor Grad Norm": tf.linalg.global_norm(gradients)}
 
 
     def update_kl_coeff(self, sampled_kl):

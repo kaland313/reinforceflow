@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 import gym
-from agents.distributions import Categorical
+from ..agents.distributions import Categorical
 
 
 class TestCategorical(TestCase):

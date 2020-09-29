@@ -1,7 +1,7 @@
 import tensorflow as tf
-from utils.reward_calc import calculate_generalized_advantage_estimate, safe_normalize_tf
+from ..utils.reward_calc import calculate_generalized_advantage_estimate, safe_normalize_tf
 
-from agents.ActorCritic import ActorCritic
+from .actor_critic import ActorCritic
 
 
 class PPO(ActorCritic):

@@ -1,7 +1,7 @@
 import unittest
 from unittest import TestCase
 import numpy as np
-from utils.reward_calc import calculate_discounted_returns, calculate_generalized_advantage_estimate
+from ..utils.reward_calc import calculate_discounted_returns, calculate_generalized_advantage_estimate
 
 
 # Credits: https://github.com/csxeba/trickster/blob/dev/trickster/processing/reward_shaping.py

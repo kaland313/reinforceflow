@@ -5,9 +5,9 @@ import tensorflow as tf
 import tensorflow.keras.layers as layers
 import matplotlib.pyplot as plt
 
-from agents.distributions import ProbaDistribution, Categorical, DiagonalGaussian, DiagonalGaussianGlobalStd
-from utils.reward_calc import calculate_discounted_returns, safe_normalize_tf
-from utils.logging import tensorboard_setup, timeseries_plot_with_std_bands
+from .distributions import ProbaDistribution, Categorical, DiagonalGaussian, DiagonalGaussianGlobalStd
+from ..utils.reward_calc import calculate_discounted_returns, safe_normalize_tf
+from ..utils.logging import tensorboard_setup, timeseries_plot_with_std_bands
 
 cross_entropy_loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 

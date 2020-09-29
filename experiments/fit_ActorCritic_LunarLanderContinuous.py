@@ -1,6 +1,6 @@
 import gym
-from agents.ActorCritic import ActorCritic
-from utils.env_utils import print_env_info
+from reinforceflow.agents.actor_critic import ActorCritic
+from reinforceflow.utils.env_utils import print_env_info
 
 env = gym.make('LunarLanderContinuous-v2')
 print_env_info(env)

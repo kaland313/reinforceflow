@@ -30,9 +30,9 @@ trainign scripts for these are included in the [experiments](experiments) folder
 ## Demonstration of trained agents
 | CartPole-v1 | LunarLanderContinuous-v2 | LunarLander-v2
 | :---------: | :----------------------: | :--------------: 
-| ![](demos/PPO_CartPole.gif) | ![](demos/PPO_LunarLanderContinuous.gif) | ![](demos/PPO_LunarLander.gif)
+| ![](media/PPO_CartPole.gif) | ![](media/PPO_LunarLanderContinuous.gif) | ![](media/PPO_LunarLander.gif)
 | 50k timesteps | 250k timesteps | 200k timesteps
 
 Example training history
-![](demos/PPO_LunarLanderContinuous_TrainingHistory.png)
+![](media/PPO_LunarLanderContinuous_TrainingHistory.png)
 

@@ -1,8 +1,7 @@
-import gym
 import tensorflow as tf
 import tensorflow.keras.layers as layers
-from agents.PolicyGradient import PolicyGradient
-from utils.reward_calc import calculate_generalized_advantage_estimate, calculate_discounted_returns
+from .policy_gradient import PolicyGradient
+from ..utils.reward_calc import calculate_generalized_advantage_estimate
 
 
 class ActorCritic(PolicyGradient):

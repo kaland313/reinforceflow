@@ -49,11 +49,8 @@ class Categorical(ProbaDistribution):
         :param network_outputs: Log-probabilities for all classes, 2-D Tensor with shape [batch_size, num_classes]
         :return: Scalar (Tensor with shape=()) or 1-D tensor, depending on batch_size
         Example:
-            >>> import random
-            >>> random.seed(1)
             >>> dist = Categorical(gym.spaces.Discrete(4))
             >>> sample = dist.sample(np.array([[0.1, 0.4, 0.2, 0.3]])).numpy()
-            2
         """
         return tf.squeeze(tf.random.categorical(network_outputs, num_samples=1))
 
@@ -64,8 +61,8 @@ class Categorical(ProbaDistribution):
         :return: tf.Tensor with the same shame as sampled_actions
         Example:
             >>> dist = Categorical(gym.spaces.Discrete(4))
-            >>> dist.prob_a_t(tf.convert_to_tensor(np.log([[0.1, 0.4, 0.2, 0.3]]), dtype=tf.float32), np.array([2]))
-            0.2
+            >>> dist.prob_a_t(tf.convert_to_tensor(np.log([[0.1, 0.4, 0.2, 0.3]]), dtype=tf.float32), np.array([2])).numpy()
+            array([0.2], dtype=float32)
         """
         probactions = tf.keras.activations.softmax(network_outputs)
         probat = tf.reduce_sum(tf.multiply(probactions, tf.one_hot(sampled_actions, depth=self.nn_feature_num)), axis=-1)

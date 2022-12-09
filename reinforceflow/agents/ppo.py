@@ -13,7 +13,7 @@ class PPO(ActorCritic):
                  generalized_advantage_estimate_lambda=0.97,
                  rollouts_per_trajectory=1,
                  global_std_for_gaussian_policy=False,
-                 tanh_transform_gaussian_policy=True,
+                 tanh_transform_gaussian_policy=False,
                  algo_str="PPO",
                  clip_epsilon=0.2,
                  policy_train_epochs=10,
